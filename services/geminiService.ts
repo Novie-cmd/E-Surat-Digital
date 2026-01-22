@@ -1,11 +1,21 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Always use the direct process.env.API_KEY reference in the constructor as per guidelines.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Inisialisasi secara aman
+const getAIInstance = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === "undefined") {
+    console.warn("API_KEY is missing. AI features will be disabled.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export const analyzeLetter = async (text: string) => {
-  if (!text || !process.env.API_KEY) return null;
+  if (!text) return null;
+  
+  const ai = getAIInstance();
+  if (!ai) return null;
 
   try {
     const response = await ai.models.generateContent({
@@ -25,7 +35,6 @@ export const analyzeLetter = async (text: string) => {
       }
     });
 
-    // Extract text property directly as it is a getter.
     return JSON.parse(response.text.trim());
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
