@@ -17,7 +17,7 @@ const Auth: React.FC<AuthProps> = ({ users, onLogin }) => {
     if (user) {
       onLogin(user);
     } else {
-      setError('Username tidak ditemukan. Coba: admin, masuk, atau keluar.');
+      setError('Username tidak ditemukan. Silakan hubungi administrator.');
     }
   };
 
@@ -60,21 +60,6 @@ const Auth: React.FC<AuthProps> = ({ users, onLogin }) => {
                 Masuk ke Sistem
               </button>
             </form>
-
-            <div className="mt-10 pt-8 border-t border-slate-100">
-              <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Akun Percobaan</p>
-              <div className="flex justify-center gap-3">
-                {['admin', 'masuk', 'keluar'].map(u => (
-                  <button 
-                    key={u}
-                    onClick={() => setUsername(u)}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-600 rounded-lg text-xs font-bold transition-colors"
-                  >
-                    {u}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
         <p className="text-center text-indigo-300/60 mt-8 text-sm">
