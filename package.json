@@ -9,10 +9,13 @@
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@google/genai": "^1.38.0",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
