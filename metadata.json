@@ -1,0 +1,7 @@
+{
+  "name": "Sistem Persuratan Digital (E-Surat)",
+  "description": "A comprehensive digital mail management system for incoming and outgoing letters with role-based access control (Admin, Incoming Staff, Outgoing Staff). Featuring AI-powered letter summarization.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
