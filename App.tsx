@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, Letter, Agenda } from './types.ts';
-import Sidebar from './components/Sidebar.tsx';
-import Dashboard from './components/Dashboard.tsx';
-import LetterModule from './components/LetterModule.tsx';
-import UserManagement from './components/UserManagement.tsx';
-import AgendaModule from './components/AgendaModule.tsx';
-import Auth from './components/Auth.tsx';
+import { User, UserRole, Letter, Agenda } from './types';
+import Sidebar from './components/Sidebar';
+import Dashboard from './components/Dashboard';
+import LetterModule from './components/LetterModule';
+import UserManagement from './components/UserManagement';
+import AgendaModule from './components/AgendaModule';
+import Auth from './components/Auth';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);

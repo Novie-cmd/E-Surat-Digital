@@ -1,8 +1,8 @@
 
 import React, { useState, useRef } from 'react';
-import { Letter, LetterType, Disposition, UserRole, DispositionAssignment } from '../types.ts';
-import { analyzeLetter } from '../services/geminiService.ts';
-import Scanner from './Scanner.tsx';
+import { Letter, LetterType, Disposition, UserRole, DispositionAssignment } from '../types';
+import { analyzeLetter } from '../services/geminiService';
+import Scanner from './Scanner';
 
 interface LetterModuleProps {
   type: LetterType;
@@ -199,7 +199,6 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      // Fix: Explicitly cast Array.from(files) to File[] to resolve 'unknown' type issues in strict mode
       (Array.from(files) as File[]).forEach(file => {
         const isValidType = file.type.startsWith('image/') || file.type === 'application/pdf';
         if (!isValidType) {
