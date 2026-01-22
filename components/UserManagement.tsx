@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 
 interface UserManagementProps {
@@ -8,22 +8,54 @@ interface UserManagementProps {
 }
 
 const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers }) => {
-  const [isAdding, setIsAdding] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     name: '',
     role: UserRole.STAF_MASUK
   });
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...formData
-    };
-    onUpdateUsers([...users, newUser]);
+  const resetForm = () => {
     setFormData({ username: '', name: '', role: UserRole.STAF_MASUK });
-    setIsAdding(false);
+    setEditingUser(null);
+  };
+
+  const handleOpenAdd = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (user: User) => {
+    setEditingUser(user);
+    setFormData({
+      username: user.username,
+      name: user.name,
+      role: user.role
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (editingUser) {
+      // Logic for editing
+      const updatedUsers = users.map(u => 
+        u.id === editingUser.id ? { ...u, ...formData } : u
+      );
+      onUpdateUsers(updatedUsers);
+    } else {
+      // Logic for adding
+      const newUser: User = {
+        id: Math.random().toString(36).substr(2, 9),
+        ...formData
+      };
+      onUpdateUsers([...users, newUser]);
+    }
+
+    setIsModalOpen(false);
+    resetForm();
   };
 
   const handleDelete = (id: string) => {
@@ -36,7 +68,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers })
     <div className="space-y-6">
       <div className="flex justify-end">
         <button 
-          onClick={() => setIsAdding(true)}
+          onClick={handleOpenAdd}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2"
         >
           <span>+</span> Tambah User Baru
@@ -68,7 +100,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers })
                     {user.role}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-right">
+                <td className="px-6 py-4 text-right space-x-2">
+                  <button 
+                    onClick={() => handleOpenEdit(user)}
+                    className="text-indigo-600 hover:text-indigo-800 text-sm font-bold px-3 py-1 hover:bg-indigo-50 rounded-lg transition-colors"
+                  >
+                    Ubah
+                  </button>
                   <button 
                     onClick={() => handleDelete(user.id)}
                     className="text-red-500 hover:text-red-700 text-sm font-bold px-3 py-1 hover:bg-red-50 rounded-lg transition-colors"
@@ -83,15 +121,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers })
         </table>
       </div>
 
-      {isAdding && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
-              <h2 className="text-xl font-bold text-indigo-900">Tambah User Baru</h2>
-              <button onClick={() => setIsAdding(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h2 className="text-xl font-bold text-indigo-900">
+                {editingUser ? 'Ubah Data User' : 'Tambah User Baru'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             
-            <form onSubmit={handleAdd} className="p-8 space-y-5">
+            <form onSubmit={handleSubmit} className="p-8 space-y-5">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">Nama Lengkap</label>
                 <input 
@@ -107,9 +147,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers })
                 <label className="text-sm font-bold text-slate-700">Username</label>
                 <input 
                   required 
+                  disabled={editingUser?.username === 'admin'}
                   value={formData.username} 
                   onChange={e => setFormData({...formData, username: e.target.value.toLowerCase()})}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-slate-50 disabled:text-slate-400" 
                   placeholder="username_login"
                 />
               </div>
@@ -128,8 +169,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers })
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setIsAdding(false)} className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Batal</button>
-                <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">Simpan User</button>
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Batal
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
+                >
+                  {editingUser ? 'Simpan Perubahan' : 'Simpan User'}
+                </button>
               </div>
             </form>
           </div>
