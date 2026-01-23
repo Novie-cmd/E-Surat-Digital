@@ -237,14 +237,14 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl my-8 animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl my-auto animate-in fade-in zoom-in duration-200 flex flex-col max-h-[95vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-20 rounded-t-3xl">
               <h3 className="text-xl font-bold text-slate-800">{editingAgenda ? 'Ubah' : 'Buat'} Agenda Harian</h3>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600 p-2">✕</button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700">Pilih Tanggal Agenda</label>
@@ -362,18 +362,26 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
                   </table>
                 </div>
               </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-white">
-                <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Batal</button>
-                <button 
-                  type="submit" 
-                  disabled={formData.items.length === 0 || !formData.dayDate}
-                  className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 shadow-lg shadow-indigo-100"
-                >
-                  Simpan Agenda
-                </button>
-              </div>
             </form>
+
+            <div className="flex justify-end gap-3 p-6 border-t sticky bottom-0 bg-white rounded-b-3xl">
+              <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Batal</button>
+              <button 
+                type="submit" 
+                onClick={(e) => {
+                  const form = (e.target as HTMLButtonElement).closest('div')?.previousSibling as HTMLFormElement;
+                  if (form && form.checkValidity()) {
+                    handleSubmit(e as any);
+                  } else {
+                    form?.reportValidity();
+                  }
+                }}
+                disabled={formData.items.length === 0 || !formData.dayDate}
+                className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 shadow-lg shadow-indigo-100 transition-all"
+              >
+                Simpan Agenda
+              </button>
+            </div>
           </div>
         </div>
       )}
