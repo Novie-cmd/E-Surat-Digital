@@ -12,6 +12,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
   const [showForm, setShowForm] = useState(false);
   const [editingAgenda, setEditingAgenda] = useState<Agenda | null>(null);
   const [rawDate, setRawDate] = useState(''); // To hold YYYY-MM-DD from input[type="date"]
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   
   const [formData, setFormData] = useState<Agenda>({
     id: '',
@@ -56,11 +57,50 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
 
   const handleAddItem = () => {
     if (!newItem.event) return;
-    const item: AgendaItem = {
-      ...newItem,
-      id: Math.random().toString(36).substr(2, 9)
-    };
-    setFormData(prev => ({ ...prev, items: [...prev.items, item] }));
+
+    if (editingItemIndex !== null) {
+      // Logic for editing existing item
+      const updatedItems = [...formData.items];
+      updatedItems[editingItemIndex] = {
+        ...newItem,
+        id: formData.items[editingItemIndex].id
+      };
+      setFormData(prev => ({ ...prev, items: updatedItems }));
+      setEditingItemIndex(null);
+    } else {
+      // Logic for adding new item
+      const item: AgendaItem = {
+        ...newItem,
+        id: Math.random().toString(36).substr(2, 9)
+      };
+      setFormData(prev => ({ ...prev, items: [...prev.items, item] }));
+    }
+
+    setNewItem({
+      time: '',
+      location: '',
+      event: '',
+      dressCode: 'Menyesuaikan',
+      remarks: ''
+    });
+  };
+
+  const handleEditItemRequest = (index: number) => {
+    const itemToEdit = formData.items[index];
+    setNewItem({
+      time: itemToEdit.time,
+      location: itemToEdit.location,
+      event: itemToEdit.event,
+      dressCode: itemToEdit.dressCode,
+      remarks: itemToEdit.remarks
+    });
+    setEditingItemIndex(index);
+    // Scroll to input section for better UX
+    document.getElementById('item-form-anchor')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const cancelEditItem = () => {
+    setEditingItemIndex(null);
     setNewItem({
       time: '',
       location: '',
@@ -72,6 +112,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
 
   const handleRemoveItem = (id: string) => {
     setFormData(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
+    if (editingItemIndex !== null) setEditingItemIndex(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -98,6 +139,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
     });
     setRawDate('');
     setEditingAgenda(null);
+    setEditingItemIndex(null);
   };
 
   const handleEdit = (agenda: Agenda) => {
@@ -274,8 +316,15 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
                 </div>
               </div>
 
-              <div className="bg-slate-50 p-6 rounded-2xl space-y-4 border border-slate-100">
-                <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wider">Tambah Item Kegiatan</h4>
+              <div id="item-form-anchor" className={`${editingItemIndex !== null ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-100'} p-6 rounded-2xl space-y-4 border transition-colors duration-300`}>
+                <div className="flex justify-between items-center">
+                  <h4 className={`font-bold ${editingItemIndex !== null ? 'text-indigo-700' : 'text-slate-700'} text-sm uppercase tracking-wider`}>
+                    {editingItemIndex !== null ? '📝 Edit Item Kegiatan' : 'Tambah Item Kegiatan'}
+                  </h4>
+                  {editingItemIndex !== null && (
+                    <button type="button" onClick={cancelEditItem} className="text-xs font-bold text-red-500 hover:underline">Batal Edit</button>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Waktu</label>
@@ -283,7 +332,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
                       placeholder="e.g. 08.00" 
                       value={newItem.time}
                       onChange={e => setNewItem({...newItem, time: e.target.value})}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-300"
                     />
                   </div>
                   <div className="space-y-1">
@@ -292,7 +341,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
                       placeholder="e.g. Ruang Rapat" 
                       value={newItem.location}
                       onChange={e => setNewItem({...newItem, location: e.target.value})}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-300"
                     />
                   </div>
                   <div className="space-y-1">
@@ -301,7 +350,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
                       placeholder="e.g. Menyesuaikan" 
                       value={newItem.dressCode}
                       onChange={e => setNewItem({...newItem, dressCode: e.target.value})}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-300"
                     />
                   </div>
                 </div>
@@ -311,7 +360,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
                     placeholder="Ketik detail acara..." 
                     value={newItem.event}
                     onChange={e => setNewItem({...newItem, event: e.target.value})}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none resize-none"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none resize-none focus:ring-1 focus:ring-indigo-300"
                     rows={2}
                   />
                 </div>
@@ -321,37 +370,54 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
                     placeholder="Gunakan baris baru untuk daftar peserta (e.g. Kadis)" 
                     value={newItem.remarks}
                     onChange={e => setNewItem({...newItem, remarks: e.target.value})}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none resize-none"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none resize-none focus:ring-1 focus:ring-indigo-300"
                     rows={2}
                   />
                 </div>
                 <button 
                   type="button" 
                   onClick={handleAddItem}
-                  className="w-full py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 shadow-md transition-all active:scale-[0.98]"
+                  className={`w-full py-2.5 ${editingItemIndex !== null ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white rounded-lg font-bold text-sm shadow-md transition-all active:scale-[0.98]`}
                 >
-                  + Tambahkan ke Daftar
+                  {editingItemIndex !== null ? '💾 Simpan Perubahan Item' : '+ Tambahkan ke Daftar'}
                 </button>
               </div>
 
               <div className="space-y-3">
                 <h4 className="font-bold text-slate-700 text-sm">Daftar Kegiatan ({formData.items.length}):</h4>
-                <div className="overflow-hidden border border-slate-100 rounded-xl">
+                <div className="overflow-hidden border border-slate-100 rounded-xl shadow-sm">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50">
                       <tr>
-                        <th className="px-4 py-2">Waktu</th>
-                        <th className="px-4 py-2">Acara</th>
-                        <th className="px-4 py-2">Aksi</th>
+                        <th className="px-4 py-2 text-[10px] uppercase text-slate-400 font-bold">Waktu</th>
+                        <th className="px-4 py-2 text-[10px] uppercase text-slate-400 font-bold">Acara</th>
+                        <th className="px-4 py-2 text-[10px] uppercase text-slate-400 font-bold text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {formData.items.map(item => (
-                        <tr key={item.id}>
-                          <td className="px-4 py-3 font-mono text-xs">{item.time}</td>
-                          <td className="px-4 py-3">{item.event}</td>
-                          <td className="px-4 py-3">
-                            <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-red-500 font-bold hover:underline">Hapus</button>
+                      {formData.items.map((item, idx) => (
+                        <tr key={item.id} className={editingItemIndex === idx ? 'bg-indigo-50/50' : 'hover:bg-slate-50/50'}>
+                          <td className="px-4 py-3 font-mono text-xs font-bold text-indigo-600">{item.time}</td>
+                          <td className="px-4 py-3 text-slate-700">{item.event}</td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                type="button" 
+                                onClick={() => handleEditItemRequest(idx)} 
+                                title="Edit Item"
+                                className="text-indigo-400 hover:text-indigo-600 transition-colors p-1"
+                              >
+                                ✏️
+                              </button>
+                              <button 
+                                type="button" 
+                                onClick={() => handleRemoveItem(item.id)} 
+                                title="Hapus Item"
+                                className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
