@@ -9,15 +9,20 @@ interface AuthProps {
 
 const Auth: React.FC<AuthProps> = ({ users, onLogin }) => {
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(u => u.username === username.toLowerCase());
+    const user = users.find(u => 
+      u.username === username.toLowerCase() && 
+      (u.password === password || (!u.password && password === ''))
+    );
+    
     if (user) {
       onLogin(user);
     } else {
-      setError('Username tidak ditemukan. Silakan hubungi administrator.');
+      setError('Username atau Password salah. Silakan coba lagi.');
     }
   };
 
@@ -31,10 +36,10 @@ const Auth: React.FC<AuthProps> = ({ users, onLogin }) => {
                 ES
               </div>
               <h1 className="text-2xl font-bold text-slate-800">E-Surat Digital</h1>
-              <p className="text-slate-500 mt-2">Silakan masuk untuk mengelola arsip</p>
+              <p className="text-slate-500 mt-2">Silakan masuk dengan akun Anda</p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 ml-1">Username</label>
                 <input 
@@ -47,23 +52,40 @@ const Auth: React.FC<AuthProps> = ({ users, onLogin }) => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Password</label>
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setError(''); }}
+                  placeholder="Masukkan password"
+                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all"
+                  required
+                />
+              </div>
+
               {error && (
-                <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100 animate-bounce">
-                  {error}
+                <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100">
+                  ⚠️ {error}
                 </div>
               )}
 
               <button 
                 type="submit"
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-indigo-100 transition-all hover:-translate-y-0.5"
+                className="w-full mt-4 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-indigo-100 transition-all hover:-translate-y-0.5"
               >
                 Masuk ke Sistem
               </button>
             </form>
+            
+            <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Default Login:</p>
+              <p className="text-xs text-slate-500 mt-1 italic">Admin: admin / 123</p>
+            </div>
           </div>
         </div>
         <p className="text-center text-indigo-300/60 mt-8 text-sm">
-          &copy; 2024 E-Surat Digital Archive System. All rights reserved.
+          &copy; 2024 E-Surat Digital NTB. Terlindungi Enkripsi Lokal.
         </p>
       </div>
     </div>

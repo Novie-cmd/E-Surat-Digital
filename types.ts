@@ -10,6 +10,7 @@ export interface User {
   username: string;
   name: string;
   role: UserRole;
+  password?: string; // Menambahkan password untuk keamanan
 }
 
 export type LetterType = 'INCOMING' | 'OUTGOING';
@@ -36,6 +37,7 @@ export interface Letter {
   fileUrl?: string;
   scannedImages?: string[];
   createdAt: number;
+  createdBy?: string; // Nama user yang menginput
   disposition?: Disposition;
 }
 
@@ -45,16 +47,17 @@ export interface AgendaItem {
   location: string;
   event: string;
   dressCode: string;
-  remarks: string; // Digunakan untuk daftar peserta (Kadis, dll)
+  remarks: string;
 }
 
 export interface Agenda {
   id: string;
-  dayDate: string; // Contoh: "Jum'at/ 23 Januari 2026"
+  dayDate: string;
   items: AgendaItem[];
-  signedBy?: string; // Nama penandatangan
-  signedNip?: string; // NIP penandatangan
+  signedBy?: string;
+  signedNip?: string;
   createdAt: number;
+  createdBy?: string; // Nama user yang menginput
 }
 
 export interface AppState {

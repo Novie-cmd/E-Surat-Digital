@@ -8,47 +8,73 @@ import UserManagement from './components/UserManagement';
 import AgendaModule from './components/AgendaModule';
 import Auth from './components/Auth';
 
+// Firebase Imports
+import { db } from './services/firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  setDoc 
+} from 'firebase/firestore';
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [letters, setLetters] = useState<Letter[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [agendas, setAgendas] = useState<Agenda[]>([]);
+  const [isSyncing, setIsSyncing] = useState(true);
 
+  // 1. Sinkronisasi User (Real-time)
   useEffect(() => {
-    const storedLetters = localStorage.getItem('esurat_letters');
-    const storedUsers = localStorage.getItem('esurat_users');
-    const storedAuth = localStorage.getItem('esurat_auth');
-    const storedAgendas = localStorage.getItem('esurat_agendas');
-
-    if (storedLetters) setLetters(JSON.parse(storedLetters));
-    if (storedAgendas) setAgendas(JSON.parse(storedAgendas));
-    if (storedUsers) {
-      setUsers(JSON.parse(storedUsers));
-    } else {
-      const defaultUsers: User[] = [
-        { id: '1', username: 'admin', name: 'Administrator', role: UserRole.ADMIN },
-        { id: '2', username: 'masuk', name: 'Staf Surat Masuk', role: UserRole.STAF_MASUK },
-        { id: '3', username: 'keluar', name: 'Staf Surat Keluar', role: UserRole.STAF_KELUAR },
-      ];
-      setUsers(defaultUsers);
-      localStorage.setItem('esurat_users', JSON.stringify(defaultUsers));
-    }
-
-    if (storedAuth) setCurrentUser(JSON.parse(storedAuth));
+    const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const userData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      
+      if (userData.length === 0) {
+        // Init default users jika Firestore kosong
+        const defaultUsers: User[] = [
+          { id: '1', username: 'admin', name: 'Administrator', role: UserRole.ADMIN, password: '123' },
+          { id: '2', username: 'masuk', name: 'Staf Surat Masuk', role: UserRole.STAF_MASUK, password: '123' },
+          { id: '3', username: 'keluar', name: 'Staf Surat Keluar', role: UserRole.STAF_KELUAR, password: '123' },
+        ];
+        defaultUsers.forEach(u => setDoc(doc(db, 'users', u.id), u));
+      } else {
+        setUsers(userData);
+      }
+    });
+    return () => unsub();
   }, []);
 
+  // 2. Sinkronisasi Surat (Real-time)
   useEffect(() => {
-    localStorage.setItem('esurat_letters', JSON.stringify(letters));
-  }, [letters]);
+    const q = query(collection(db, 'letters'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const letterData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Letter));
+      setLetters(letterData);
+      setIsSyncing(false);
+    });
+    return () => unsub();
+  }, []);
 
+  // 3. Sinkronisasi Agenda (Real-time)
   useEffect(() => {
-    localStorage.setItem('esurat_users', JSON.stringify(users));
-  }, [users]);
+    const unsub = onSnapshot(collection(db, 'agendas'), (snapshot) => {
+      const agendaData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Agenda));
+      setAgendas(agendaData);
+    });
+    return () => unsub();
+  }, []);
 
+  // 4. Cek Session Login Lokal
   useEffect(() => {
-    localStorage.setItem('esurat_agendas', JSON.stringify(agendas));
-  }, [agendas]);
+    const storedAuth = localStorage.getItem('esurat_auth');
+    if (storedAuth) setCurrentUser(JSON.parse(storedAuth));
+  }, []);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -61,25 +87,49 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  const addLetter = (letter: Omit<Letter, 'id' | 'createdAt'>) => {
-    const newLetter: Letter = {
-      ...letter,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: Date.now()
-    };
-    setLetters(prev => [newLetter, ...prev]);
+  // Database Handlers
+  const addLetter = async (letter: Omit<Letter, 'id' | 'createdAt' | 'createdBy'>) => {
+    try {
+      await addDoc(collection(db, 'letters'), {
+        ...letter,
+        createdAt: Date.now(),
+        createdBy: currentUser?.name || 'Unknown'
+      });
+    } catch (e) {
+      console.error("Error adding letter: ", e);
+      alert("Gagal menyimpan ke Cloud Firestore.");
+    }
   };
 
-  const deleteLetter = (id: string) => {
-    setLetters(prev => prev.filter(l => l.id !== id));
+  const deleteLetter = async (id: string) => {
+    if (confirm("Hapus arsip dari cloud?")) {
+      await deleteDoc(doc(db, 'letters', id));
+    }
   };
 
-  const updateLetter = (updated: Letter) => {
-    setLetters(prev => prev.map(l => l.id === updated.id ? updated : l));
+  const updateLetter = async (updated: Letter) => {
+    const { id, ...data } = updated;
+    await updateDoc(doc(db, 'letters', id), data);
   };
 
-  const saveAgendas = (updated: Agenda[]) => {
-    setAgendas(updated);
+  const saveAgendas = async (updated: Agenda[]) => {
+    // Karena struktur data kita menyimpan list agenda, kita update per item atau koleksi
+    // Untuk simplifikasi, kita asumsikan update per dokumen ID
+    updated.forEach(async (a) => {
+      const agendaData = { ...a, createdBy: a.createdBy || currentUser?.name || 'Unknown' };
+      await setDoc(doc(db, 'agendas', a.id), agendaData);
+    });
+  };
+
+  const handleUpdateUsers = (updatedUsers: User[]) => {
+    // Sync perubahan user ke Firestore
+    updatedUsers.forEach(async (u) => {
+      await setDoc(doc(db, 'users', u.id), u);
+    });
+    
+    // Jika ada yang dihapus di lokal tapi ada di firestore, 
+    // logika di atas perlu disesuaikan dengan diffing.
+    // Tapi untuk UserManagement kita sudah mengirimkan array lengkap.
   };
 
   if (!currentUser) {
@@ -96,12 +146,25 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
       
-      <main className="flex-1 overflow-y-auto p-4 md:p-8">
-        <header className="mb-8 no-print">
-          <h1 className="text-2xl font-bold text-slate-800 capitalize">
-            {activeTab.replace('-', ' ')}
-          </h1>
-          <p className="text-slate-500">Selamat datang kembali, {currentUser.name}</p>
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+        <header className="mb-8 no-print flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-800 capitalize">
+                {activeTab.replace('-', ' ')}
+              </h1>
+              {isSyncing && (
+                <span className="flex items-center gap-1 text-[10px] bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full font-bold animate-pulse">
+                  ☁️ SINKRONISASI CLOUD
+                </span>
+              )}
+            </div>
+            <p className="text-slate-500">Selamat datang kembali, {currentUser.name}</p>
+          </div>
+          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentUser.role}</span>
+          </div>
         </header>
 
         {activeTab === 'dashboard' && <Dashboard letters={letters} users={users} />}
@@ -141,7 +204,7 @@ const App: React.FC = () => {
         {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (
           <UserManagement 
             users={users} 
-            onUpdateUsers={(updated) => setUsers(updated)} 
+            onUpdateUsers={handleUpdateUsers} 
           />
         )}
       </main>

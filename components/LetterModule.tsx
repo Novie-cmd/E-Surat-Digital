@@ -7,7 +7,7 @@ import Scanner from './Scanner';
 interface LetterModuleProps {
   type: LetterType;
   letters: Letter[];
-  onAdd: (letter: Omit<Letter, 'id' | 'createdAt'>) => void;
+  onAdd: (letter: Omit<Letter, 'id' | 'createdAt' | 'createdBy'>) => void;
   onDelete: (id: string) => void;
   onUpdate: (letter: Letter) => void;
   canManage: boolean;
@@ -170,20 +170,8 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
           </div>
           ${dispositionHtml}
           
-          ${imageAttachments ? `
-            <div class="attachments-section">
-              <h3 style="border-bottom: 1px solid #000;">Lampiran Gambar:</h3>
-              ${imageAttachments}
-            </div>
-          ` : ''}
-
-          ${pdfAttachmentsCount > 0 ? `
-            <div class="pdf-notice">
-              <strong>Catatan:</strong> Terdapat ${pdfAttachmentsCount} lampiran dokumen format PDF yang tersimpan secara digital di sistem.
-            </div>
-          ` : ''}
-
           <div style="margin-top: 50px; text-align: right;">
+            <p>Diinput oleh: ${letter.createdBy || 'Sistem'}</p>
             <p>Dicetak pada: ${new Date().toLocaleString('id-ID')}</p>
             <br><br><br>
             <p>( __________________________ )</p>
@@ -291,7 +279,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
            <span className="absolute left-3 top-2.5 text-slate-400">🔍</span>
            <input 
             type="text" 
-            placeholder="Cari surat..." 
+            placeholder="Cari nomor/perihal..." 
             className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm shadow-sm"
            />
         </div>
@@ -300,7 +288,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
             onClick={() => { resetForm(); setShowForm(true); }}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2"
           >
-            <span>+</span> {type === 'INCOMING' ? 'Tambah Surat Masuk' : 'Tambah Surat Keluar'}
+            <span>+</span> {type === 'INCOMING' ? 'Input Surat Masuk' : 'Input Surat Keluar'}
           </button>
         )}
       </div>
@@ -312,9 +300,8 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
               <tr>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Tgl / No. Surat</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">{type === 'INCOMING' ? 'Pengirim' : 'Penerima'}</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Perihal</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Perihal / Petugas</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Arsip Digital</th>
-                {type === 'INCOMING' && <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Disposisi</th>}
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Aksi</th>
               </tr>
             </thead>
@@ -324,11 +311,12 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                   <tr key={letter.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="font-semibold text-slate-800">{new Date(letter.date).toLocaleDateString('id-ID')}</p>
-                      <p className="text-xs text-slate-500 font-mono">{letter.referenceNumber}</p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">{letter.referenceNumber}</p>
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-700">{letter.sender}</td>
                     <td className="px-6 py-4">
-                      <p className="text-slate-800 line-clamp-1">{letter.subject}</p>
+                      <p className="text-slate-800 line-clamp-1 font-medium">{letter.subject}</p>
+                      <p className="text-[10px] text-indigo-500 font-bold mt-1">👤 Oleh: {letter.createdBy || 'Sistem'}</p>
                     </td>
                     <td className="px-6 py-4">
                       {letter.scannedImages && letter.scannedImages.length > 0 ? (
@@ -345,31 +333,18 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                             ))}
                           </div>
                           <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                            {letter.scannedImages.length} Berkas
+                            {letter.scannedImages.length}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-slate-300 italic">Tanpa Lampiran</span>
+                        <span className="text-[10px] text-slate-300 italic">Tanpa Berkas</span>
                       )}
                     </td>
-                    {type === 'INCOMING' && (
-                      <td className="px-6 py-4">
-                        {letter.disposition && letter.disposition.assignments.length > 0 ? (
-                          <div className="flex flex-col gap-1">
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-md w-fit">
-                              {letter.disposition.assignments.length} Pihak
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[10px] font-bold rounded-md w-fit">Belum Ada</span>
-                        )}
-                      </td>
-                    )}
                     <td className="px-6 py-4 text-right space-x-1 whitespace-nowrap">
                       <button 
                         onClick={() => handlePrint(letter)} 
-                        title="Cetak Surat & Lampiran"
-                        className="text-slate-500 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="Cetak/Preview"
+                        className="text-slate-400 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
                       >
                         🖨️
                       </button>
@@ -384,7 +359,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                 ))
               ) : (
                 <tr>
-                  <td colSpan={type === 'INCOMING' ? 6 : 5} className="px-6 py-12 text-center text-slate-400">Belum ada data surat tersedia.</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Belum ada data surat tersedia.</td>
                 </tr>
               )}
             </tbody>
@@ -399,7 +374,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{editingLetter ? '📁' : '📥'}</span>
                 <h2 className="text-xl font-bold text-slate-800">
-                  {editingLetter ? 'Ubah Data' : 'Arsip'} {type === 'INCOMING' ? 'Surat Masuk' : 'Surat Keluar'}
+                  {editingLetter ? 'Ubah Data' : 'Arsip Baru'} {type === 'INCOMING' ? 'Surat Masuk' : 'Surat Keluar'}
                 </h2>
               </div>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600 p-2">✕</button>
@@ -413,7 +388,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                     required 
                     value={formData.referenceNumber} 
                     onChange={e => setFormData({...formData, referenceNumber: e.target.value})}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
                     placeholder="Contoh: 001/A1/DISDIK/2024"
                   />
                 </div>
@@ -424,7 +399,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                     required 
                     value={formData.date} 
                     onChange={e => setFormData({...formData, date: e.target.value})}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
                   />
                 </div>
               </div>
@@ -435,12 +410,11 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                   required 
                   value={formData.sender} 
                   onChange={e => setFormData({...formData, sender: e.target.value})}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
                   placeholder={type === 'INCOMING' ? "Nama Instansi Asal" : "Nama Instansi Tujuan"}
                 />
               </div>
 
-              {/* DOKUMEN MULTI-FORMAT SECTION */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-bold text-slate-700">Unggah Lampiran (JPG/PNG atau PDF)</label>
@@ -458,14 +432,14 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                       onClick={() => fileInputRef.current?.click()}
                       className="text-xs font-bold text-indigo-700 hover:bg-indigo-50 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-indigo-200 shadow-sm transition-colors"
                     >
-                      📁 Unggah File (Multi)
+                      📁 Unggah Berkas
                     </button>
                     <button 
                       type="button" 
                       onClick={() => setShowScanner(true)}
                       className="text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-colors"
                     >
-                      📸 Gunakan Kamera
+                      📸 Kamera HP
                     </button>
                   </div>
                 </div>
@@ -476,9 +450,9 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                       {formData.scannedImages.map((file, idx) => (
                         <div key={idx} className="relative group w-28 h-36 flex-shrink-0 rounded-lg overflow-hidden shadow-lg border-2 border-white bg-white">
                           {file.startsWith('data:application/pdf') ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-600 p-2">
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-600 p-2 text-center">
                               <span className="text-3xl mb-1">📄</span>
-                              <span className="text-[10px] font-bold">PDF FILE</span>
+                              <span className="text-[10px] font-bold">PDF</span>
                             </div>
                           ) : (
                             <img src={file} className="w-full h-full object-cover" />
@@ -493,23 +467,13 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                               ✕
                             </button>
                           </div>
-                          <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-[9px] text-white text-center py-1 font-bold">BERKAS {idx + 1}</div>
+                          <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-[9px] text-white text-center py-1 font-bold">{idx + 1}</div>
                         </div>
                       ))}
-                      <button 
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-28 h-36 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-400 transition-all bg-white"
-                      >
-                        <span className="text-2xl mb-1">+</span>
-                        <span className="text-[10px] font-bold">TAMBAH</span>
-                      </button>
                     </div>
                   ) : (
                     <div className="w-full flex flex-col items-center justify-center text-slate-400 py-12">
-                      <div className="w-16 h-16 bg-white border border-slate-200 rounded-full flex items-center justify-center text-3xl mb-3 shadow-sm">📄</div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Belum ada dokumen terunggah</p>
-                      <p className="text-[10px] text-slate-300 mt-1">Gunakan scanner printer untuk format PDF/JPG atau kamera HP</p>
+                      <p className="text-xs font-bold uppercase tracking-widest">Belum ada lampiran</p>
                     </div>
                   )}
                 </div>
@@ -521,7 +485,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                   required 
                   value={formData.subject} 
                   onChange={e => setFormData({...formData, subject: e.target.value})}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-slate-800" 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-slate-800" 
                   placeholder="Ringkasan perihal surat"
                 />
               </div>
@@ -542,7 +506,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                   rows={3} 
                   value={formData.description} 
                   onChange={e => setFormData({...formData, description: e.target.value})}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50/50" 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
                   placeholder="Ringkasan isi surat..."
                 />
               </div>
@@ -557,9 +521,9 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                       <button 
                         type="button" 
                         onClick={() => setShowDisposition(true)}
-                        className="text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-4 py-2 rounded-xl transition-all shadow-md shadow-amber-200"
+                        className="text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-4 py-2 rounded-xl transition-all shadow-md"
                       >
-                        Buka Lembar Disposisi
+                        Buka Disposisi
                       </button>
                     )}
                   </div>
@@ -573,7 +537,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                             onChange={e => setNewRecipient(e.target.value)}
                             onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addRecipient())}
                             className="flex-1 px-4 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none text-sm bg-white" 
-                            placeholder="Unit / Jabatan Penerima Disposisi..."
+                            placeholder="Unit / Jabatan Penerima..."
                           />
                           <button 
                             type="button" 
@@ -586,41 +550,35 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                       )}
 
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-amber-800 uppercase tracking-wider">Diteruskan Kepada:</label>
                         <div className="bg-white border border-amber-100 rounded-xl divide-y divide-amber-50 overflow-hidden shadow-sm">
                           {formData.disposition?.assignments && formData.disposition.assignments.length > 0 ? (
                             formData.disposition.assignments.map((asgn, idx) => (
                               <div key={idx} className="flex items-center justify-between p-3 hover:bg-amber-50/30 transition-colors">
-                                <div className="flex items-center gap-3">
-                                  <span className="w-6 h-6 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center text-[10px] font-bold">
-                                    {idx + 1}
-                                  </span>
-                                  <span className="text-sm font-medium text-slate-700">{asgn.recipient}</span>
-                                </div>
+                                <span className="text-sm font-medium text-slate-700">{asgn.recipient}</span>
                                 <div className="flex items-center gap-3">
                                   <select 
                                     value={asgn.status}
                                     onChange={e => updateAssignmentStatus(idx, e.target.value as any)}
-                                    className="text-xs border-none bg-amber-50 text-amber-800 rounded-lg px-2 py-1 focus:ring-0 cursor-pointer font-bold"
+                                    className="text-xs border-none bg-amber-50 text-amber-800 rounded-lg px-2 py-1 font-bold"
                                   >
                                     <option value="Menunggu">Menunggu</option>
                                     <option value="Proses">Proses</option>
                                     <option value="Selesai">Selesai</option>
                                   </select>
                                   {isAdmin && (
-                                    <button type="button" onClick={() => removeRecipient(idx)} className="text-amber-200 hover:text-red-500 transition-colors p-1" title="Hapus">✕</button>
+                                    <button type="button" onClick={() => removeRecipient(idx)} className="text-red-300 hover:text-red-500 transition-colors p-1">✕</button>
                                   )}
                                 </div>
                               </div>
                             ))
                           ) : (
-                            <p className="p-4 text-center text-xs text-slate-400 italic">Belum ada unit kerja yang ditunjuk.</p>
+                            <p className="p-4 text-center text-xs text-slate-400 italic">Belum ada unit kerja ditunjuk.</p>
                           )}
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-amber-800 uppercase tracking-wider">Instruksi / Catatan:</label>
+                        <label className="text-xs font-bold text-amber-800 uppercase tracking-wider">Instruksi:</label>
                         <textarea 
                           readOnly={!isAdmin}
                           rows={2} 
@@ -635,17 +593,11 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                 </div>
               )}
 
-              <div className="flex justify-between items-center pt-6 sticky bottom-0 bg-white py-4 border-t border-slate-100">
-                <div className="hidden sm:flex items-center gap-2 text-slate-400 text-[10px]">
-                   <span className="flex w-2 h-2 rounded-full bg-emerald-500"></span>
-                   Sistem Pengarsipan Aktif
-                </div>
-                <div className="flex gap-3 w-full sm:w-auto">
-                  <button type="button" onClick={() => setShowForm(false)} className="flex-1 sm:flex-none px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Batal</button>
-                  <button type="submit" className="flex-1 sm:flex-none px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2">
-                    {editingLetter ? '💾 Update Arsip' : '➕ Simpan Arsip'}
-                  </button>
-                </div>
+              <div className="flex justify-end gap-3 pt-6 sticky bottom-0 bg-white py-4 border-t border-slate-100">
+                <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Batal</button>
+                <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg transition-all">
+                  {editingLetter ? 'Simpan Perubahan' : 'Simpan Arsip'}
+                </button>
               </div>
             </form>
           </div>
