@@ -112,32 +112,32 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
 
   const handlePrint = (letter: Letter) => {
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    if (!printWindow) {
+      alert('Mohon izinkan pop-up untuk mencetak surat.');
+      return;
+    }
 
     const dispositionHtml = letter.disposition ? `
-      <div style="margin-top: 30px; border: 2px solid #000; padding: 15px;">
-        <h3 style="text-align: center; margin-top: 0; text-decoration: underline;">LEMBAR DISPOSISI</h3>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-          <tr style="border-bottom: 1px solid #000;">
-            <td style="padding: 8px; font-weight: bold; width: 30%;">Instruksi Pimpinan:</td>
-            <td style="padding: 8px;">${letter.disposition.instruction || '-'}</td>
-          </tr>
-        </table>
-        <h4 style="margin-bottom: 5px;">Diteruskan Kepada:</h4>
-        <table style="width: 100%; border-collapse: collapse; border: 1px solid #000;">
+      <div class="disposition-section">
+        <h3 class="disposition-title">LEMBAR DISPOSISI</h3>
+        <div class="disposition-meta">
+          <p><strong>Instruksi Pimpinan:</strong></p>
+          <div class="instruction-box">${letter.disposition.instruction || '-'}</div>
+        </div>
+        <table class="disposition-table">
           <thead>
-            <tr style="background: #f0f0f0;">
-              <th style="border: 1px solid #000; padding: 5px;">No</th>
-              <th style="border: 1px solid #000; padding: 5px;">Penerima / Jabatan</th>
-              <th style="border: 1px solid #000; padding: 5px;">Status</th>
+            <tr>
+              <th width="50">No</th>
+              <th>Penerima / Jabatan</th>
+              <th width="150">Status</th>
             </tr>
           </thead>
           <tbody>
             ${letter.disposition.assignments.map((asgn, i) => `
               <tr>
-                <td style="border: 1px solid #000; padding: 5px; text-align: center;">${i + 1}</td>
-                <td style="border: 1px solid #000; padding: 5px;">${asgn.recipient}</td>
-                <td style="border: 1px solid #000; padding: 5px; text-align: center;">${asgn.status}</td>
+                <td align="center">${i + 1}</td>
+                <td>${asgn.recipient}</td>
+                <td align="center">${asgn.status}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -145,38 +145,123 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
       </div>
     ` : '';
 
+    const attachmentsHtml = (letter.scannedImages && letter.scannedImages.length > 0) ? `
+      <div class="page-break"></div>
+      <div class="attachments-section">
+        <h3 class="section-title">LAMPIRAN BERKAS</h3>
+        <div class="images-grid">
+          ${letter.scannedImages.map((img, idx) => `
+            <div class="attachment-item">
+              <p class="img-label">Halaman ${idx + 1}</p>
+              <img src="${img}" style="max-width: 100%; border: 1px solid #ddd; margin-bottom: 20px;" />
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : '';
+
     printWindow.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Cetak Surat - ${letter.referenceNumber}</title>
           <style>
-            body { font-family: 'Arial', sans-serif; padding: 40px; line-height: 1.6; }
-            .header { text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
-            .info-table { width: 100%; margin-bottom: 20px; }
-            .info-table td { padding: 5px 0; vertical-align: top; }
+            @page { size: A4; margin: 2cm; }
+            body { font-family: 'Times New Roman', Times, serif; color: #000; line-height: 1.5; margin: 0; padding: 0; }
+            .letter-container { padding: 0; }
+            .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 30px; position: relative; }
+            .header h1 { margin: 0; font-size: 20pt; text-transform: uppercase; letter-spacing: 1px; }
+            .header h2 { margin: 0; font-size: 16pt; text-transform: uppercase; }
+            .header p { margin: 5px 0 0 0; font-size: 10pt; font-style: italic; }
+            
+            .info-table { width: 100%; margin-bottom: 30px; border-collapse: collapse; }
+            .info-table td { padding: 5px 0; vertical-align: top; font-size: 11pt; }
+            .info-table td.label { width: 120px; }
+            .info-table td.colon { width: 20px; text-align: center; }
+
+            .content-section { text-align: justify; margin-bottom: 40px; font-size: 11pt; }
+            .content-title { font-weight: bold; margin-bottom: 10px; text-decoration: underline; }
+            
+            .disposition-section { margin-top: 50px; border: 2px solid #000; padding: 20px; page-break-inside: avoid; }
+            .disposition-title { text-align: center; margin-top: 0; text-decoration: underline; font-size: 14pt; margin-bottom: 20px; }
+            .instruction-box { min-height: 60px; border: 1px solid #ccc; padding: 10px; margin: 10px 0 20px 0; background: #fafafa; }
+            .disposition-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .disposition-table th, .disposition-table td { border: 1px solid #000; padding: 8px; font-size: 10pt; }
+            .disposition-table th { background: #f0f0f0; }
+
+            .footer-info { margin-top: 60px; float: right; width: 250px; text-align: center; font-size: 11pt; }
+            .footer-info p { margin: 0; }
+            .footer-info .sign-space { height: 80px; }
+
+            .page-break { page-break-before: always; }
+            .section-title { border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 20px; text-align: center; }
+            .attachment-item { text-align: center; margin-bottom: 30px; }
+            .img-label { font-weight: bold; font-size: 10pt; color: #666; margin-bottom: 5px; }
+
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none; }
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h2 style="margin: 0;">INSTANSI PEMERINTAH REPUBLIK INDONESIA</h2>
-            <p style="margin: 5px 0;">Jl. Administrasi Digital No. 1, Jakarta | Telp: (021) 123456</p>
+          <div class="letter-container">
+            <div class="header">
+              <h1>PEMERINTAH PROVINSI NTB</h1>
+              <h2>DINAS KOMUNIKASI INFORMATIKA DAN STATISTIK</h2>
+              <p>Jl. Administrasi Digital No. 1, Mataram | Telp: (0370) 123456 | Website: www.ntbprov.go.id</p>
+            </div>
+
+            <table class="info-table">
+              <tr>
+                <td class="label">Nomor Surat</td>
+                <td class="colon">:</td>
+                <td><strong>${letter.referenceNumber}</strong></td>
+              </tr>
+              <tr>
+                <td class="label">Tanggal Surat</td>
+                <td class="colon">:</td>
+                <td>${new Date(letter.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+              </tr>
+              <tr>
+                <td class="label">${letter.type === 'INCOMING' ? 'Asal Surat' : 'Tujuan Surat'}</td>
+                <td class="colon">:</td>
+                <td>${letter.sender}</td>
+              </tr>
+              <tr>
+                <td class="label">Perihal</td>
+                <td class="colon">:</td>
+                <td><strong>${letter.subject}</strong></td>
+              </tr>
+            </table>
+
+            <div class="content-section">
+              <p class="content-title">Ringkasan / Isi Surat:</p>
+              <div style="white-space: pre-wrap;">${letter.description || 'Tidak ada ringkasan isi surat yang tersedia.'}</div>
+            </div>
+
+            <div class="footer-info">
+              <p>Mataram, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              <p>Petugas Arsip,</p>
+              <div class="sign-space"></div>
+              <p><strong>( ${letter.createdBy || 'Administrator'} )</strong></p>
+            </div>
+
+            <div style="clear: both;"></div>
+
+            ${dispositionHtml}
           </div>
-          <table class="info-table">
-            <tr><td style="width: 150px;">Nomor Surat</td><td>: ${letter.referenceNumber}</td></tr>
-            <tr><td>Tanggal</td><td>: ${new Date(letter.date).toLocaleDateString('id-ID')}</td></tr>
-            <tr><td>Asal/Tujuan</td><td>: ${letter.sender}</td></tr>
-            <tr><td>Perihal</td><td>: <strong>${letter.subject}</strong></td></tr>
-          </table>
-          <div style="margin-top: 20px;">
-            <p><strong>Ringkasan Isi:</strong></p>
-            <p style="text-align: justify;">${letter.description || 'Tidak ada ringkasan.'}</p>
-          </div>
-          ${dispositionHtml}
-          <div style="margin-top: 50px; text-align: right;">
-            <p>Diinput oleh: ${letter.createdBy || 'Sistem'}</p>
-            <p>Dicetak pada: ${new Date().toLocaleString('id-ID')}</p>
-          </div>
-          <script>window.onload = function() { window.print(); window.close(); }</script>
+
+          ${attachmentsHtml}
+
+          <script>
+            window.onload = function() {
+              setTimeout(() => {
+                window.print();
+                window.onafterprint = function() { window.close(); };
+              }, 500);
+            };
+          </script>
         </body>
       </html>
     `);
@@ -260,10 +345,6 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
             <tbody className="divide-y divide-slate-50">
               {letters.length > 0 ? (
                 letters.map(letter => {
-                  // Logika Warna Huruf: 
-                  // Prioritas 1: check2 (Pink)
-                  // Prioritas 2: check1 (Blue)
-                  // Default: Slate-800
                   const rowTextColor = letter.check2 
                     ? 'text-pink-600 font-medium' 
                     : letter.check1 
@@ -292,7 +373,6 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                       </td>
                       <td className="px-6 py-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-3">
-                          {/* 2 Checklist Tambahan */}
                           <div className="flex gap-2 mr-2 border-r border-slate-100 pr-3">
                             <label className="flex items-center gap-1 cursor-pointer group" title="Tandai Status 1 (Biru)">
                               <input 
@@ -312,7 +392,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                             </label>
                           </div>
 
-                          <button onClick={() => handlePrint(letter)} className="text-slate-400 hover:text-indigo-600 p-1">🖨️</button>
+                          <button onClick={() => handlePrint(letter)} className="text-slate-400 hover:text-indigo-600 p-1" title="Cetak Surat">🖨️</button>
                           {canManage && (
                             <>
                               <button onClick={() => handleEdit(letter)} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold px-2 py-1">Ubah</button>
