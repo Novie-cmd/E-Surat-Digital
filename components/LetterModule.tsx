@@ -30,7 +30,9 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
     subject: '',
     description: '',
     scannedImages: [] as string[],
-    disposition: undefined as Disposition | undefined
+    disposition: undefined as Disposition | undefined,
+    check1: false,
+    check2: false
   });
 
   const handleAnalyze = async () => {
@@ -76,7 +78,9 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
       subject: '',
       description: '',
       scannedImages: [],
-      disposition: undefined
+      disposition: undefined,
+      check1: false,
+      check2: false
     });
     setNewRecipient('');
     setShowDisposition(false);
@@ -90,11 +94,20 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
       subject: letter.subject,
       description: letter.description || '',
       scannedImages: letter.scannedImages || [],
-      disposition: letter.disposition
+      disposition: letter.disposition,
+      check1: letter.check1 || false,
+      check2: letter.check2 || false
     });
     setShowDisposition(!!letter.disposition);
     setEditingLetter(letter);
     setShowForm(true);
+  };
+
+  const toggleCheck = (letter: Letter, field: 'check1' | 'check2') => {
+    onUpdate({
+      ...letter,
+      [field]: !letter[field]
+    });
   };
 
   const handlePrint = (letter: Letter) => {
@@ -132,14 +145,6 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
       </div>
     ` : '';
 
-    const imageAttachments = (letter.scannedImages || [])
-      .filter(img => !img.startsWith('data:application/pdf'))
-      .map(img => `<img src="${img}" style="max-width: 100%; margin-bottom: 20px; display: block;" />`)
-      .join('');
-
-    const pdfAttachmentsCount = (letter.scannedImages || [])
-      .filter(img => img.startsWith('data:application/pdf')).length;
-
     printWindow.document.write(`
       <html>
         <head>
@@ -149,8 +154,6 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
             .header { text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
             .info-table { width: 100%; margin-bottom: 20px; }
             .info-table td { padding: 5px 0; vertical-align: top; }
-            .attachments-section { page-break-before: always; }
-            .pdf-notice { padding: 10px; border: 1px dashed #666; background: #f9f9f9; margin-top: 10px; }
           </style>
         </head>
         <body>
@@ -169,13 +172,9 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
             <p style="text-align: justify;">${letter.description || 'Tidak ada ringkasan.'}</p>
           </div>
           ${dispositionHtml}
-          
           <div style="margin-top: 50px; text-align: right;">
             <p>Diinput oleh: ${letter.createdBy || 'Sistem'}</p>
             <p>Dicetak pada: ${new Date().toLocaleString('id-ID')}</p>
-            <br><br><br>
-            <p>( __________________________ )</p>
-            <p>Petugas Arsip</p>
           </div>
           <script>window.onload = function() { window.print(); window.close(); }</script>
         </body>
@@ -188,12 +187,6 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
     const files = e.target.files;
     if (files) {
       (Array.from(files) as File[]).forEach(file => {
-        const isValidType = file.type.startsWith('image/') || file.type === 'application/pdf';
-        if (!isValidType) {
-          alert(`File ${file.name} tidak didukung. Gunakan JPG/PNG atau PDF.`);
-          return;
-        }
-
         const reader = new FileReader();
         reader.onloadend = () => {
           setFormData(prev => ({
@@ -204,7 +197,6 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
         reader.readAsDataURL(file);
       });
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const removeImage = (idx: number) => {
@@ -226,48 +218,15 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
     if (!newRecipient.trim()) return;
     const currentDisp = formData.disposition || { assignments: [], instruction: '', date: new Date().toISOString().split('T')[0] };
     const newAssignment: DispositionAssignment = { recipient: newRecipient.trim(), status: 'Menunggu' };
-    
-    setFormData({
-      ...formData,
-      disposition: {
-        ...currentDisp,
-        assignments: [...currentDisp.assignments, newAssignment]
-      }
-    });
+    setFormData({ ...formData, disposition: { ...currentDisp, assignments: [...currentDisp.assignments, newAssignment] } });
     setNewRecipient('');
-  };
-
-  const removeRecipient = (index: number) => {
-    if (!formData.disposition) return;
-    const updatedAssignments = formData.disposition.assignments.filter((_, i) => i !== index);
-    setFormData({
-      ...formData,
-      disposition: {
-        ...formData.disposition,
-        assignments: updatedAssignments
-      }
-    });
   };
 
   const updateAssignmentStatus = (index: number, status: DispositionAssignment['status']) => {
     if (!formData.disposition) return;
     const updatedAssignments = [...formData.disposition.assignments];
     updatedAssignments[index].status = status;
-    setFormData({
-      ...formData,
-      disposition: {
-        ...formData.disposition,
-        assignments: updatedAssignments
-      }
-    });
-  };
-
-  const updateInstruction = (instruction: string) => {
-    const currentDisp = formData.disposition || { assignments: [], instruction: '', date: new Date().toISOString().split('T')[0] };
-    setFormData({
-      ...formData,
-      disposition: { ...currentDisp, instruction }
-    });
+    setFormData({ ...formData, disposition: { ...formData.disposition, assignments: updatedAssignments } });
   };
 
   const isAdmin = userRole === UserRole.ADMIN;
@@ -277,17 +236,10 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
       <div className="flex justify-between items-center no-print">
         <div className="relative flex-1 max-w-xs">
            <span className="absolute left-3 top-2.5 text-slate-400">🔍</span>
-           <input 
-            type="text" 
-            placeholder="Cari nomor/perihal..." 
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm shadow-sm"
-           />
+           <input type="text" placeholder="Cari nomor/perihal..." className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm" />
         </div>
         {canManage && (
-          <button 
-            onClick={() => { resetForm(); setShowForm(true); }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2"
-          >
+          <button onClick={() => { resetForm(); setShowForm(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
             <span>+</span> {type === 'INCOMING' ? 'Input Surat Masuk' : 'Input Surat Keluar'}
           </button>
         )}
@@ -300,67 +252,80 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
               <tr>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Tgl / No. Surat</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">{type === 'INCOMING' ? 'Pengirim' : 'Penerima'}</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Perihal / Petugas</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Arsip Digital</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Perihal</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Arsip</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {letters.length > 0 ? (
-                letters.map(letter => (
-                  <tr key={letter.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="font-semibold text-slate-800">{new Date(letter.date).toLocaleDateString('id-ID')}</p>
-                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">{letter.referenceNumber}</p>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-700">{letter.sender}</td>
-                    <td className="px-6 py-4">
-                      <p className="text-slate-800 line-clamp-1 font-medium">{letter.subject}</p>
-                      <p className="text-[10px] text-indigo-500 font-bold mt-1">👤 Oleh: {letter.createdBy || 'Sistem'}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      {letter.scannedImages && letter.scannedImages.length > 0 ? (
-                        <div className="flex items-center gap-2">
-                          <div className="flex -space-x-2">
-                            {letter.scannedImages.slice(0, 3).map((file, i) => (
-                              <div key={i} className="w-8 h-8 rounded-md border-2 border-white overflow-hidden shadow-sm bg-slate-100 flex items-center justify-center">
-                                {file.startsWith('data:application/pdf') ? (
-                                  <span className="text-[10px] font-bold text-red-600 bg-red-50 w-full h-full flex items-center justify-center">PDF</span>
-                                ) : (
-                                  <img src={file} className="w-full h-full object-cover" />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                            {letter.scannedImages.length}
+                letters.map(letter => {
+                  // Logika Warna Huruf: 
+                  // Prioritas 1: check2 (Pink)
+                  // Prioritas 2: check1 (Blue)
+                  // Default: Slate-800
+                  const rowTextColor = letter.check2 
+                    ? 'text-pink-600 font-medium' 
+                    : letter.check1 
+                      ? 'text-indigo-600 font-medium' 
+                      : 'text-slate-800';
+
+                  return (
+                    <tr key={letter.id} className={`hover:bg-slate-50/50 transition-colors ${rowTextColor}`}>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold">{new Date(letter.date).toLocaleDateString('id-ID')}</p>
+                        <p className="text-[10px] opacity-60 font-mono mt-0.5">{letter.referenceNumber}</p>
+                      </td>
+                      <td className="px-6 py-4 font-medium">{letter.sender}</td>
+                      <td className="px-6 py-4">
+                        <p className="line-clamp-1 font-medium">{letter.subject}</p>
+                        <p className="text-[10px] opacity-60 mt-1">👤 {letter.createdBy || 'Sistem'}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        {letter.scannedImages && letter.scannedImages.length > 0 ? (
+                          <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-md">
+                            {letter.scannedImages.length} Berkas
                           </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 italic">Kosong</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-3">
+                          {/* 2 Checklist Tambahan */}
+                          <div className="flex gap-2 mr-2 border-r border-slate-100 pr-3">
+                            <label className="flex items-center gap-1 cursor-pointer group" title="Tandai Status 1 (Biru)">
+                              <input 
+                                type="checkbox" 
+                                checked={!!letter.check1} 
+                                onChange={() => toggleCheck(letter, 'check1')}
+                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                            </label>
+                            <label className="flex items-center gap-1 cursor-pointer group" title="Tandai Status 2 (Pink)">
+                              <input 
+                                type="checkbox" 
+                                checked={!!letter.check2} 
+                                onChange={() => toggleCheck(letter, 'check2')}
+                                className="w-4 h-4 rounded border-slate-300 text-pink-600 focus:ring-pink-500"
+                              />
+                            </label>
+                          </div>
+
+                          <button onClick={() => handlePrint(letter)} className="text-slate-400 hover:text-indigo-600 p-1">🖨️</button>
+                          {canManage && (
+                            <>
+                              <button onClick={() => handleEdit(letter)} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold px-2 py-1">Ubah</button>
+                              <button onClick={() => onDelete(letter.id)} className="text-red-400 hover:text-red-600 text-xs font-bold px-2 py-1">Hapus</button>
+                            </>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-300 italic">Tanpa Berkas</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right space-x-1 whitespace-nowrap">
-                      <button 
-                        onClick={() => handlePrint(letter)} 
-                        title="Cetak/Preview"
-                        className="text-slate-400 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
-                      >
-                        🖨️
-                      </button>
-                      {canManage && (
-                        <>
-                          <button onClick={() => handleEdit(letter)} className="text-indigo-600 hover:text-indigo-800 text-sm font-bold px-3 py-1 hover:bg-indigo-50 rounded-lg transition-colors">Ubah</button>
-                          <button onClick={() => onDelete(letter.id)} className="text-red-500 hover:text-red-700 text-sm font-bold px-3 py-1 hover:bg-red-50 rounded-lg transition-colors">Hapus</button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Belum ada data surat tersedia.</td>
-                </tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Belum ada data surat.</td></tr>
               )}
             </tbody>
           </table>
@@ -371,245 +336,91 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh] animate-in fade-in zoom-in duration-200 border border-slate-200">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{editingLetter ? '📁' : '📥'}</span>
-                <h2 className="text-xl font-bold text-slate-800">
-                  {editingLetter ? 'Ubah Data' : 'Arsip Baru'} {type === 'INCOMING' ? 'Surat Masuk' : 'Surat Keluar'}
-                </h2>
-              </div>
+              <h2 className="text-xl font-bold text-slate-800">
+                {editingLetter ? 'Ubah Data' : 'Arsip Baru'} {type === 'INCOMING' ? 'Surat Masuk' : 'Surat Keluar'}
+              </h2>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600 p-2">✕</button>
             </div>
             
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Nomor Surat</label>
-                  <input 
-                    required 
-                    value={formData.referenceNumber} 
-                    onChange={e => setFormData({...formData, referenceNumber: e.target.value})}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
-                    placeholder="Contoh: 001/A1/DISDIK/2024"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Tanggal Surat</label>
-                  <input 
-                    type="date" 
-                    required 
-                    value={formData.date} 
-                    onChange={e => setFormData({...formData, date: e.target.value})}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
-                  />
-                </div>
+                <input required value={formData.referenceNumber} onChange={e => setFormData({...formData, referenceNumber: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="Nomor Surat" />
+                <input type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">{type === 'INCOMING' ? 'Pengirim (Instansi/Personal)' : 'Penerima / Tujuan'}</label>
-                <input 
-                  required 
-                  value={formData.sender} 
-                  onChange={e => setFormData({...formData, sender: e.target.value})}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
-                  placeholder={type === 'INCOMING' ? "Nama Instansi Asal" : "Nama Instansi Tujuan"}
-                />
-              </div>
+              <input required value={formData.sender} onChange={e => setFormData({...formData, sender: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder={type === 'INCOMING' ? "Pengirim" : "Penerima"} />
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-sm font-bold text-slate-700">Unggah Lampiran (JPG/PNG atau PDF)</label>
+                  <label className="text-sm font-bold text-slate-700">Lampiran Berkas</label>
                   <div className="flex gap-2">
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      multiple 
-                      accept="image/*,application/pdf" 
-                      onChange={handleFileUpload}
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs font-bold text-indigo-700 hover:bg-indigo-50 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-indigo-200 shadow-sm transition-colors"
-                    >
-                      📁 Unggah Berkas
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => setShowScanner(true)}
-                      className="text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-colors"
-                    >
-                      📸 Kamera HP
-                    </button>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200">📁 File</button>
+                    <button type="button" onClick={() => setShowScanner(true)} className="text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">📸 Kamera</button>
+                    <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,application/pdf" onChange={handleFileUpload} />
                   </div>
                 </div>
-                
-                <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl min-h-[140px]">
-                  {formData.scannedImages.length > 0 ? (
-                    <div className="flex flex-wrap gap-4">
-                      {formData.scannedImages.map((file, idx) => (
-                        <div key={idx} className="relative group w-28 h-36 flex-shrink-0 rounded-lg overflow-hidden shadow-lg border-2 border-white bg-white">
-                          {file.startsWith('data:application/pdf') ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-600 p-2 text-center">
-                              <span className="text-3xl mb-1">📄</span>
-                              <span className="text-[10px] font-bold">PDF</span>
-                            </div>
-                          ) : (
-                            <img src={file} className="w-full h-full object-cover" />
-                          )}
-                          
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button 
-                              type="button"
-                              onClick={() => removeImage(idx)}
-                              className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-sm shadow-xl hover:bg-red-700 transition-colors"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-[9px] text-white text-center py-1 font-bold">{idx + 1}</div>
-                        </div>
-                      ))}
+                <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl min-h-[100px] flex flex-wrap gap-2">
+                  {formData.scannedImages.map((file, idx) => (
+                    <div key={idx} className="relative w-20 h-24 bg-white rounded-lg shadow-sm border overflow-hidden">
+                      {file.startsWith('data:application/pdf') ? <div className="w-full h-full flex items-center justify-center text-red-500 font-bold text-xs">PDF</div> : <img src={file} className="w-full h-full object-cover" />}
+                      <button type="button" onClick={() => removeImage(idx)} className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-[10px]">✕</button>
                     </div>
-                  ) : (
-                    <div className="w-full flex flex-col items-center justify-center text-slate-400 py-12">
-                      <p className="text-xs font-bold uppercase tracking-widest">Belum ada lampiran</p>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">Perihal</label>
-                <input 
-                  required 
-                  value={formData.subject} 
-                  onChange={e => setFormData({...formData, subject: e.target.value})}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-slate-800" 
-                  placeholder="Ringkasan perihal surat"
-                />
-              </div>
+              <input required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold" placeholder="Perihal" />
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-bold text-slate-700">Isi Ringkas / Deskripsi</label>
-                  <button 
-                    type="button" 
-                    onClick={handleAnalyze} 
-                    disabled={isAnalyzing}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {isAnalyzing ? 'Proses...' : '✨ Analisis AI'}
-                  </button>
+                <div className="flex justify-between">
+                   <label className="text-sm font-bold text-slate-700">Isi Ringkas</label>
+                   <button type="button" onClick={handleAnalyze} disabled={isAnalyzing} className="text-xs font-bold text-indigo-600">✨ Analisis AI</button>
                 </div>
-                <textarea 
-                  rows={3} 
-                  value={formData.description} 
-                  onChange={e => setFormData({...formData, description: e.target.value})}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
-                  placeholder="Ringkasan isi surat..."
-                />
+                <textarea rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none resize-none" placeholder="Ringkasan isi..." />
               </div>
 
               {type === 'INCOMING' && (
-                <div className="border-2 border-dashed border-amber-200 rounded-2xl p-6 bg-amber-50/10 space-y-6">
+                <div className="border border-amber-200 rounded-2xl p-6 bg-amber-50/10 space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-md font-bold text-amber-900 flex items-center gap-2">
-                      <span className="text-xl">📋</span> Lembar Disposisi Digital
-                    </h3>
-                    {!showDisposition && (
-                      <button 
-                        type="button" 
-                        onClick={() => setShowDisposition(true)}
-                        className="text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-4 py-2 rounded-xl transition-all shadow-md"
-                      >
-                        Buka Disposisi
-                      </button>
-                    )}
+                    <h3 className="text-md font-bold text-amber-900">📋 Lembar Disposisi</h3>
+                    {!showDisposition && <button type="button" onClick={() => setShowDisposition(true)} className="text-xs font-bold text-white bg-amber-600 px-4 py-2 rounded-xl">Buka Disposisi</button>}
                   </div>
 
                   {showDisposition && (
-                    <div className="space-y-6 animate-in slide-in-from-top-2 duration-300">
+                    <div className="space-y-4 animate-in slide-in-from-top-2">
                       {isAdmin && (
                         <div className="flex gap-2">
-                          <input 
-                            value={newRecipient}
-                            onChange={e => setNewRecipient(e.target.value)}
-                            onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addRecipient())}
-                            className="flex-1 px-4 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none text-sm bg-white" 
-                            placeholder="Unit / Jabatan Penerima..."
-                          />
-                          <button 
-                            type="button" 
-                            onClick={addRecipient}
-                            className="bg-amber-600 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-amber-700 shadow-sm"
-                          >
-                            Tambah
-                          </button>
+                          <input value={newRecipient} onChange={e => setNewRecipient(e.target.value)} className="flex-1 px-4 py-2 border rounded-xl text-sm outline-none" placeholder="Penerima..." />
+                          <button type="button" onClick={addRecipient} className="bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-bold">Tambah</button>
                         </div>
                       )}
-
-                      <div className="space-y-2">
-                        <div className="bg-white border border-amber-100 rounded-xl divide-y divide-amber-50 overflow-hidden shadow-sm">
-                          {formData.disposition?.assignments && formData.disposition.assignments.length > 0 ? (
-                            formData.disposition.assignments.map((asgn, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-3 hover:bg-amber-50/30 transition-colors">
-                                <span className="text-sm font-medium text-slate-700">{asgn.recipient}</span>
-                                <div className="flex items-center gap-3">
-                                  <select 
-                                    value={asgn.status}
-                                    onChange={e => updateAssignmentStatus(idx, e.target.value as any)}
-                                    className="text-xs border-none bg-amber-50 text-amber-800 rounded-lg px-2 py-1 font-bold"
-                                  >
-                                    <option value="Menunggu">Menunggu</option>
-                                    <option value="Proses">Proses</option>
-                                    <option value="Selesai">Selesai</option>
-                                  </select>
-                                  {isAdmin && (
-                                    <button type="button" onClick={() => removeRecipient(idx)} className="text-red-300 hover:text-red-500 transition-colors p-1">✕</button>
-                                  )}
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="p-4 text-center text-xs text-slate-400 italic">Belum ada unit kerja ditunjuk.</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-amber-800 uppercase tracking-wider">Instruksi:</label>
-                        <textarea 
-                          readOnly={!isAdmin}
-                          rows={2} 
-                          value={formData.disposition?.instruction || ''}
-                          onChange={e => updateInstruction(e.target.value)}
-                          className="w-full px-4 py-3 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none bg-white text-sm resize-none shadow-sm" 
-                          placeholder="Instruksi pimpinan..."
-                        />
+                      <div className="bg-white border rounded-xl divide-y">
+                        {formData.disposition?.assignments.map((asgn, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3">
+                            <span className="text-sm font-medium">{asgn.recipient}</span>
+                            <select value={asgn.status} onChange={e => updateAssignmentStatus(idx, e.target.value as any)} className="text-xs border-none bg-amber-50 rounded-lg px-2 py-1">
+                              <option value="Menunggu">Menunggu</option>
+                              <option value="Proses">Proses</option>
+                              <option value="Selesai">Selesai</option>
+                            </select>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-6 sticky bottom-0 bg-white py-4 border-t border-slate-100">
-                <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Batal</button>
-                <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg transition-all">
-                  {editingLetter ? 'Simpan Perubahan' : 'Simpan Arsip'}
-                </button>
+              <div className="flex justify-end gap-3 pt-6 border-t">
+                <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 text-slate-500 font-bold">Batal</button>
+                <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">Simpan Arsip</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {showScanner && (
-        <Scanner 
-          onComplete={handleScannerComplete}
-          onClose={() => setShowScanner(false)}
-        />
-      )}
+      {showScanner && <Scanner onComplete={handleScannerComplete} onClose={() => setShowScanner(false)} />}
     </div>
   );
 };

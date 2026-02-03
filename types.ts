@@ -39,6 +39,8 @@ export interface Letter {
   createdAt: number;
   createdBy?: string; // Nama user yang menginput
   disposition?: Disposition;
+  check1?: boolean; // Penanda warna 1 (Biru)
+  check2?: boolean; // Penanda warna 2 (Pink/Merah)
 }
 
 export interface AgendaItem {
