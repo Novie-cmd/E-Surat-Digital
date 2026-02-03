@@ -8,19 +8,8 @@ import UserManagement from './components/UserManagement';
 import AgendaModule from './components/AgendaModule';
 import Auth from './components/Auth';
 
-// Firebase Imports
-import { db } from './services/firebase';
-import { 
-  collection, 
-  onSnapshot, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  orderBy, 
-  setDoc 
-} from 'firebase/firestore';
+// Supabase Import
+import { supabase } from './services/supabase';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -29,48 +18,125 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [isSyncing, setIsSyncing] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
 
-  // 1. Sinkronisasi User (Real-time)
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const userData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+  // Fungsi helper untuk validasi env var
+  const isValid = (val: any) => val && val !== "undefined" && val !== "null" && val !== "";
+  const isSupabaseConfigured = !!(supabase && isValid(process.env.VITE_SUPABASE_URL) && isValid(process.env.VITE_SUPABASE_ANON_KEY));
+
+  // --- 1. SINKRONISASI USERS ---
+  const fetchUsers = async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) throw error;
       
-      if (userData.length === 0) {
-        // Init default users jika Firestore kosong
-        const defaultUsers: User[] = [
-          { id: '1', username: 'admin', name: 'Administrator', role: UserRole.ADMIN, password: '123' },
-          { id: '2', username: 'masuk', name: 'Staf Surat Masuk', role: UserRole.STAF_MASUK, password: '123' },
-          { id: '3', username: 'keluar', name: 'Staf Surat Keluar', role: UserRole.STAF_KELUAR, password: '123' },
-        ];
-        defaultUsers.forEach(u => setDoc(doc(db, 'users', u.id), u));
-      } else {
-        setUsers(userData);
+      if (data && data.length === 0) {
+        const { error: insErr } = await supabase.from('profiles').insert([
+          { username: 'admin', name: 'Administrator', role: UserRole.ADMIN, password: '123' }
+        ]);
+        if (!insErr) fetchUsers();
+      } else if (data) {
+        setUsers(data as User[]);
       }
-    });
-    return () => unsub();
-  }, []);
+    } catch (err: any) {
+      console.error("Error users:", err.message);
+      setDbError(`Gagal mengambil data user: ${err.message}. Pastikan tabel 'profiles' sudah dibuat.`);
+    }
+  };
 
-  // 2. Sinkronisasi Surat (Real-time)
   useEffect(() => {
-    const q = query(collection(db, 'letters'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const letterData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Letter));
-      setLetters(letterData);
+    if (isSupabaseConfigured) {
+      fetchUsers();
+      const channel = supabase.channel('profiles-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+          fetchUsers();
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [isSupabaseConfigured]);
+
+  // --- 2. SINKRONISASI LETTERS ---
+  const fetchLetters = async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase.from('letters').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      
+      if (data) {
+        const mapped = data.map(l => ({
+          id: l.id,
+          type: l.type,
+          referenceNumber: l.reference_number,
+          date: l.date,
+          sender: l.sender,
+          subject: l.subject,
+          description: l.description,
+          scannedImages: l.scanned_images,
+          disposition: l.disposition,
+          check1: l.check1,
+          check2: l.check2,
+          createdAt: new Date(l.created_at).getTime(),
+          createdBy: l.created_by
+        } as Letter));
+        setLetters(mapped);
+      }
       setIsSyncing(false);
-    });
-    return () => unsub();
-  }, []);
+    } catch (err: any) {
+      console.error("Error letters:", err.message);
+    }
+  };
 
-  // 3. Sinkronisasi Agenda (Real-time)
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'agendas'), (snapshot) => {
-      const agendaData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Agenda));
-      setAgendas(agendaData);
-    });
-    return () => unsub();
-  }, []);
+    if (isSupabaseConfigured) {
+      fetchLetters();
+      const channel = supabase.channel('letters-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'letters' }, () => {
+          fetchLetters();
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [isSupabaseConfigured]);
 
-  // 4. Cek Session Login Lokal
+  // --- 3. SINKRONISASI AGENDAS ---
+  const fetchAgendas = async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase.from('agendas').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      
+      if (data) {
+        const mapped = data.map(a => ({
+          id: a.id,
+          dayDate: a.day_date,
+          items: a.items,
+          signedBy: a.signed_by,
+          signedNip: a.signed_nip,
+          createdAt: new Date(a.created_at).getTime(),
+          createdBy: a.created_by
+        } as Agenda));
+        setAgendas(mapped);
+      }
+    } catch (err: any) {
+      console.error("Error agendas:", err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      fetchAgendas();
+      const channel = supabase.channel('agendas-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'agendas' }, () => {
+          fetchAgendas();
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [isSupabaseConfigured]);
+
+  // --- 4. AUTH HANDLERS ---
   useEffect(() => {
     const storedAuth = localStorage.getItem('esurat_auth');
     if (storedAuth) setCurrentUser(JSON.parse(storedAuth));
@@ -87,53 +153,109 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  // Database Handlers
+  // --- 5. DATA MUTATION HANDLERS ---
   const addLetter = async (letter: Omit<Letter, 'id' | 'createdAt' | 'createdBy'>) => {
-    try {
-      await addDoc(collection(db, 'letters'), {
-        ...letter,
-        createdAt: Date.now(),
-        createdBy: currentUser?.name || 'Unknown'
-      });
-    } catch (e) {
-      console.error("Error adding letter: ", e);
-      alert("Gagal menyimpan ke Cloud Firestore.");
-    }
+    if (!supabase) return;
+    const { error } = await supabase.from('letters').insert([{
+      type: letter.type,
+      reference_number: letter.referenceNumber,
+      date: letter.date,
+      sender: letter.sender,
+      subject: letter.subject,
+      description: letter.description,
+      scanned_images: letter.scannedImages,
+      disposition: letter.disposition,
+      check1: letter.check1,
+      check2: letter.check2,
+      created_by: currentUser?.name || 'Unknown'
+    }]);
+    if (error) alert("Gagal menyimpan ke Supabase: " + error.message);
   };
 
   const deleteLetter = async (id: string) => {
+    if (!supabase) return;
     if (confirm("Hapus arsip dari cloud?")) {
-      await deleteDoc(doc(db, 'letters', id));
+      await supabase.from('letters').delete().eq('id', id);
     }
   };
 
   const updateLetter = async (updated: Letter) => {
-    const { id, ...data } = updated;
-    await updateDoc(doc(db, 'letters', id), data);
+    if (!supabase) return;
+    await supabase.from('letters').update({
+      reference_number: updated.referenceNumber,
+      date: updated.date,
+      sender: updated.sender,
+      subject: updated.subject,
+      description: updated.description,
+      scanned_images: updated.scannedImages,
+      disposition: updated.disposition,
+      check1: updated.check1,
+      check2: updated.check2
+    }).eq('id', updated.id);
   };
 
-  const saveAgendas = async (updated: Agenda[]) => {
-    // Karena struktur data kita menyimpan list agenda, kita update per item atau koleksi
-    // Untuk simplifikasi, kita asumsikan update per dokumen ID
-    updated.forEach(async (a) => {
-      const agendaData = { ...a, createdBy: a.createdBy || currentUser?.name || 'Unknown' };
-      await setDoc(doc(db, 'agendas', a.id), agendaData);
-    });
+  const saveAgendas = async (updatedList: Agenda[]) => {
+    if (!supabase) return;
+    for (const a of updatedList) {
+      const payload = {
+        day_date: a.dayDate,
+        items: a.items,
+        signed_by: a.signedBy,
+        signed_nip: a.signedNip,
+        created_by: a.createdBy || currentUser?.name || 'Unknown'
+      };
+      
+      if (a.id && a.id.length > 20) {
+        await supabase.from('agendas').update(payload).eq('id', a.id);
+      } else {
+        await supabase.from('agendas').insert([payload]);
+      }
+    }
+    fetchAgendas();
   };
 
-  const handleUpdateUsers = (updatedUsers: User[]) => {
-    // Sync perubahan user ke Firestore
-    updatedUsers.forEach(async (u) => {
-      await setDoc(doc(db, 'users', u.id), u);
-    });
-    
-    // Jika ada yang dihapus di lokal tapi ada di firestore, 
-    // logika di atas perlu disesuaikan dengan diffing.
-    // Tapi untuk UserManagement kita sudah mengirimkan array lengkap.
+  const handleUpdateUsers = async (updatedUsers: User[]) => {
+    if (!supabase) return;
+    for (const u of updatedUsers) {
+      const payload = { username: u.username, name: u.name, role: u.role, password: u.password };
+      if (u.id && u.id.length > 20) {
+        await supabase.from('profiles').update(payload).eq('id', u.id);
+      } else {
+        await supabase.from('profiles').insert([payload]);
+      }
+    }
+    fetchUsers();
   };
+
+  // Tampilan jika konfigurasi hilang
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
+        <div className="max-w-md bg-white p-8 rounded-3xl shadow-2xl">
+          <div className="text-5xl mb-4">⚙️</div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Konfigurasi Belum Lengkap</h2>
+          <p className="text-slate-600 mb-6">Variabel lingkungan Supabase (URL/Key) belum diatur di Vercel atau Dashboard Anda.</p>
+          <div className="bg-slate-50 p-4 rounded-xl text-left text-[10px] font-mono text-slate-500 overflow-x-auto">
+            VITE_SUPABASE_URL=https://xyz.supabase.co<br/>
+            VITE_SUPABASE_ANON_KEY=eyJhbGci...
+          </div>
+          <p className="mt-6 text-xs text-slate-400">Pastikan Anda telah menambahkan variabel lingkungan tersebut di pengaturan proyek Vercel Anda.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentUser) {
-    return <Auth onLogin={handleLogin} users={users} />;
+    return (
+      <>
+        {dbError && (
+          <div className="fixed top-0 inset-x-0 bg-red-600 text-white p-2 text-center text-xs z-[200]">
+            ⚠️ {dbError}
+          </div>
+        )}
+        <Auth onLogin={handleLogin} users={users} />
+      </>
+    );
   }
 
   return (
@@ -155,7 +277,7 @@ const App: React.FC = () => {
               </h1>
               {isSyncing && (
                 <span className="flex items-center gap-1 text-[10px] bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full font-bold animate-pulse">
-                  ☁️ SINKRONISASI CLOUD
+                  ⚡ SUPABASE CONNECTED
                 </span>
               )}
             </div>
@@ -166,6 +288,12 @@ const App: React.FC = () => {
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentUser.role}</span>
           </div>
         </header>
+
+        {dbError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm flex items-center gap-3">
+            <span>❌</span> {dbError}
+          </div>
+        )}
 
         {activeTab === 'dashboard' && <Dashboard letters={letters} users={users} />}
         
