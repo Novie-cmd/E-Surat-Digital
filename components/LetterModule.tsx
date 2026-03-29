@@ -148,12 +148,12 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
     const attachmentsHtml = (letter.scannedImages && letter.scannedImages.length > 0) ? `
       <div class="page-break"></div>
       <div class="attachments-section">
-        <h3 class="section-title">LAMPIRAN BERKAS</h3>
+        <h3 class="section-title">LAMPIRAN BERKAS (HASIL SCAN)</h3>
         <div class="images-grid">
           ${letter.scannedImages.map((img, idx) => `
             <div class="attachment-item">
               <p class="img-label">Halaman ${idx + 1}</p>
-              <img src="${img}" style="max-width: 100%; border: 1px solid #ddd; margin-bottom: 20px;" />
+              <img src="${img}" style="max-width: 100%; border: 1px solid #ddd; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;" />
             </div>
           `).join('')}
         </div>
@@ -164,51 +164,54 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
       <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8">
           <title>Cetak Surat - ${letter.referenceNumber}</title>
           <style>
-            @page { size: A4; margin: 2cm; }
-            body { font-family: 'Times New Roman', Times, serif; color: #000; line-height: 1.5; margin: 0; padding: 0; }
+            @page { size: A4; margin: 2.5cm; }
+            body { font-family: 'Times New Roman', Times, serif; color: #000; line-height: 1.6; margin: 0; padding: 0; }
             .letter-container { padding: 0; }
-            .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 30px; position: relative; }
-            .header h1 { margin: 0; font-size: 20pt; text-transform: uppercase; letter-spacing: 1px; }
-            .header h2 { margin: 0; font-size: 16pt; text-transform: uppercase; }
+            .header { text-align: center; border-bottom: 3px double #000; padding-bottom: 15px; margin-bottom: 30px; }
+            .header h1 { margin: 0; font-size: 18pt; text-transform: uppercase; line-height: 1.2; }
+            .header h2 { margin: 0; font-size: 14pt; text-transform: uppercase; font-weight: bold; }
             .header p { margin: 5px 0 0 0; font-size: 10pt; font-style: italic; }
             
             .info-table { width: 100%; margin-bottom: 30px; border-collapse: collapse; }
-            .info-table td { padding: 5px 0; vertical-align: top; font-size: 11pt; }
-            .info-table td.label { width: 120px; }
+            .info-table td { padding: 4px 0; vertical-align: top; font-size: 11pt; }
+            .info-table td.label { width: 130px; }
             .info-table td.colon { width: 20px; text-align: center; }
 
             .content-section { text-align: justify; margin-bottom: 40px; font-size: 11pt; }
-            .content-title { font-weight: bold; margin-bottom: 10px; text-decoration: underline; }
+            .content-title { font-weight: bold; margin-bottom: 10px; }
+            .content-body { white-space: pre-wrap; min-height: 150px; border: 1px solid #eee; padding: 10px; border-radius: 5px; background: #fafafa; }
             
-            .disposition-section { margin-top: 50px; border: 2px solid #000; padding: 20px; page-break-inside: avoid; }
-            .disposition-title { text-align: center; margin-top: 0; text-decoration: underline; font-size: 14pt; margin-bottom: 20px; }
-            .instruction-box { min-height: 60px; border: 1px solid #ccc; padding: 10px; margin: 10px 0 20px 0; background: #fafafa; }
-            .disposition-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            .disposition-table th, .disposition-table td { border: 1px solid #000; padding: 8px; font-size: 10pt; }
+            .disposition-section { margin-top: 50px; border: 2px solid #000; padding: 15px; page-break-inside: avoid; }
+            .disposition-title { text-align: center; margin-top: 0; font-weight: bold; font-size: 12pt; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+            .instruction-box { min-height: 40px; border: 1px solid #000; padding: 10px; margin: 10px 0; background: #fff; font-size: 10pt; }
+            .disposition-table { width: 100%; border-collapse: collapse; }
+            .disposition-table th, .disposition-table td { border: 1px solid #000; padding: 6px; font-size: 10pt; }
             .disposition-table th { background: #f0f0f0; }
 
-            .footer-info { margin-top: 60px; float: right; width: 250px; text-align: center; font-size: 11pt; }
+            .footer-info { margin-top: 40px; float: right; width: 280px; text-align: center; font-size: 11pt; }
             .footer-info p { margin: 0; }
-            .footer-info .sign-space { height: 80px; }
+            .footer-info .sign-space { height: 70px; }
 
             .page-break { page-break-before: always; }
-            .section-title { border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 20px; text-align: center; }
-            .attachment-item { text-align: center; margin-bottom: 30px; }
-            .img-label { font-weight: bold; font-size: 10pt; color: #666; margin-bottom: 5px; }
+            .attachments-section { margin-top: 20px; }
+            .section-title { border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 20px; text-align: center; font-weight: bold; }
+            .attachment-item { text-align: center; margin-bottom: 40px; }
+            .img-label { font-weight: bold; font-size: 10pt; color: #666; margin-bottom: 10px; border-bottom: 1px dashed #ccc; display: inline-block; }
 
             @media print {
               body { padding: 0; }
-              .no-print { display: none; }
+              .content-body { border: none; background: transparent; padding: 0; }
             }
           </style>
         </head>
         <body>
           <div class="letter-container">
             <div class="header">
-              <h1>PEMERINTAH PROVINSI NTB</h1>
-              <h2>DINAS KOMUNIKASI INFORMATIKA DAN STATISTIK</h2>
+              <h2>PEMERINTAH PROVINSI NUSA TENGGARA BARAT</h2>
+              <h1>DINAS KOMUNIKASI INFORMATIKA DAN STATISTIK</h1>
               <p>Jl. Administrasi Digital No. 1, Mataram | Telp: (0370) 123456 | Website: www.ntbprov.go.id</p>
             </div>
 
@@ -236,13 +239,13 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
             </table>
 
             <div class="content-section">
-              <p class="content-title">Ringkasan / Isi Surat:</p>
-              <div style="white-space: pre-wrap;">${letter.description || 'Tidak ada ringkasan isi surat yang tersedia.'}</div>
+              <p class="content-title">ISI RINGKAS SURAT:</p>
+              <div class="content-body">${letter.description || 'Ringkasan isi surat tidak dicantumkan.'}</div>
             </div>
 
             <div class="footer-info">
               <p>Mataram, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p>Petugas Arsip,</p>
+              <p>Petugas Arsip Digital,</p>
               <div class="sign-space"></div>
               <p><strong>( ${letter.createdBy || 'Administrator'} )</strong></p>
             </div>
@@ -256,10 +259,12 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
 
           <script>
             window.onload = function() {
+              // Berikan sedikit waktu tambahan untuk memastikan rendering font/gambar selesai
               setTimeout(() => {
                 window.print();
+                // Opsional: Tutup jendela otomatis setelah selesai cetak
                 window.onafterprint = function() { window.close(); };
-              }, 500);
+              }, 1000);
             };
           </script>
         </body>

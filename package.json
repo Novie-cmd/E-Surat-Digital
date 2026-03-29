@@ -1,4 +1,3 @@
-
 {
   "name": "e-surat-digital",
   "private": true,
@@ -7,14 +6,15 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
   },
   "engines": {
     "node": "20"
   },
   "dependencies": {
     "@google/genai": "^1.38.0",
-    "@supabase/supabase-js": "^2.48.1",
+    "firebase": "^12.11.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

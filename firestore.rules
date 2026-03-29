@@ -1,0 +1,129 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: userId (string)
+// Fields:
+//   - username: string (required) - Login username
+//   - name: string (required) - Full name
+//   - role: string (required, enum: ADMIN, STAF_MASUK, STAF_KELUAR) - User role
+//   - password: string (required) - User password
+//
+// Collection: letters
+// Document ID: letterId (string)
+// Fields:
+//   - type: string (required, enum: INCOMING, OUTGOING)
+//   - referenceNumber: string (required)
+//   - date: string (required)
+//   - sender: string (required)
+//   - subject: string (required)
+//   - description: string (optional)
+//   - scannedImages: list (optional)
+//   - disposition: map (optional)
+//   - check1: bool (optional)
+//   - check2: bool (optional)
+//   - createdAt: number (required)
+//   - createdBy: string (optional)
+//
+// Collection: agendas
+// Document ID: agendaId (string)
+// Fields:
+//   - dayDate: string (required)
+//   - items: list (required)
+//   - signedBy: string (optional)
+//   - signedNip: string (optional)
+//   - createdAt: number (required)
+//   - createdBy: string (optional)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+         (request.auth.token.email == "noviharyanto062@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.username is string && data.username.size() > 0 && data.username.size() < 50 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.role in ['ADMIN', 'STAF_MASUK', 'STAF_KELUAR'] &&
+             data.password is string && data.password.size() > 0;
+    }
+
+    function isValidLetter(data) {
+      return data.type in ['INCOMING', 'OUTGOING'] &&
+             data.referenceNumber is string &&
+             data.date is string &&
+             data.sender is string &&
+             data.subject is string &&
+             data.createdAt is number;
+    }
+
+    function isValidAgenda(data) {
+      return data.dayDate is string &&
+             data.items is list &&
+             data.createdAt is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Allow reading users for login purposes
+      allow read: if isAuthenticated();
+      
+      // Allow the initial admin to create their own profile or other users
+      allow create, update: if (isAdmin() || (request.auth.token.email == "noviharyanto062@gmail.com" && request.auth.token.email_verified == true)) && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /letters/{letterId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && isValidLetter(request.resource.data) && (
+        isAdmin() || 
+        (request.resource.data.type == 'INCOMING' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STAF_MASUK') ||
+        (request.resource.data.type == 'OUTGOING' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STAF_KELUAR')
+      );
+      
+      allow update: if isAuthenticated() && isValidLetter(request.resource.data) && (
+        isAdmin() || 
+        (resource.data.type == 'INCOMING' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STAF_MASUK') ||
+        (resource.data.type == 'OUTGOING' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STAF_KELUAR')
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    match /agendas/{agendaId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin() && isValidAgenda(request.resource.data);
+    }
+  }
+}

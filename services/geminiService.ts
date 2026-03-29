@@ -35,6 +35,10 @@ export const analyzeLetter = async (text: string) => {
       }
     });
 
+    if (!response.text) {
+      throw new Error("No text returned from Gemini");
+    }
+
     return JSON.parse(response.text.trim());
   } catch (error) {
     console.error("Gemini Analysis Error:", error);

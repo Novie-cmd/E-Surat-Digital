@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "description": "Login username" },
+        "name": { "type": "string", "description": "Full name of the user" },
+        "role": { "type": "string", "enum": ["ADMIN", "STAF_MASUK", "STAF_KELUAR"], "description": "User role for access control" },
+        "password": { "type": "string", "description": "User password" }
+      },
+      "required": ["username", "name", "role", "password"]
+    },
+    "Letter": {
+      "title": "Letter",
+      "description": "Incoming or outgoing letter record",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["INCOMING", "OUTGOING"], "description": "Type of letter" },
+        "referenceNumber": { "type": "string", "description": "Reference number of the letter" },
+        "date": { "type": "string", "description": "Date of the letter" },
+        "sender": { "type": "string", "description": "Sender of the letter" },
+        "subject": { "type": "string", "description": "Subject of the letter" },
+        "description": { "type": "string", "description": "Brief description" },
+        "scannedImages": { "type": "array", "items": { "type": "string" }, "description": "List of scanned image URLs" },
+        "disposition": { "type": "object", "description": "Disposition details" },
+        "check1": { "type": "boolean", "description": "Blue marker" },
+        "check2": { "type": "boolean", "description": "Red/Pink marker" },
+        "createdAt": { "type": "number", "description": "Timestamp of creation" },
+        "createdBy": { "type": "string", "description": "Name of the user who created the record" }
+      },
+      "required": ["type", "referenceNumber", "date", "sender", "subject", "createdAt"]
+    },
+    "Agenda": {
+      "title": "Agenda",
+      "description": "Daily agenda record",
+      "type": "object",
+      "properties": {
+        "dayDate": { "type": "string", "description": "Date of the agenda" },
+        "items": { "type": "array", "items": { "type": "object" }, "description": "List of agenda items" },
+        "signedBy": { "type": "string", "description": "Name of the signer" },
+        "signedNip": { "type": "string", "description": "NIP of the signer" },
+        "createdAt": { "type": "number", "description": "Timestamp of creation" },
+        "createdBy": { "type": "string", "description": "Name of the user who created the record" }
+      },
+      "required": ["dayDate", "items", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/letters/{letterId}": {
+      "schema": "Letter",
+      "description": "Letter records"
+    },
+    "/agendas/{agendaId}": {
+      "schema": "Agenda",
+      "description": "Agenda records"
+    }
+  }
+}
