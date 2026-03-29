@@ -174,7 +174,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
     printWindow.document.write(`
       <html>
         <head>
-          <title>Agenda Kepala Dinas</title>
+          <title>AGENDA HARIAN KESBANGPOLDAGRI NTB</title>
           <style>
             @page { size: landscape; margin: 1cm; }
             body { font-family: 'Arial', sans-serif; margin: 0; padding: 20px; color: #000; }
@@ -188,7 +188,7 @@ const AgendaModule: React.FC<AgendaModuleProps> = ({ agendas, onSave, canManage 
         </head>
         <body>
           <div class="header">
-            <h2>AGENDA KEPALA DINAS</h2>
+            <h2>AGENDA HARIAN KESBANGPOLDAGRI NTB</h2>
             <h2>PROVINSI NUSA TENGGARA BARAT</h2>
           </div>
           <table>
