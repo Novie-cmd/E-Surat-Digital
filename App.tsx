@@ -131,6 +131,7 @@ const App: React.FC = () => {
   const [isUsersLoaded, setIsUsersLoaded] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [viewingFilesLetter, setViewingFilesLetter] = useState<Letter | null>(null);
 
   const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
     const errInfo: FirestoreErrorInfo = {
@@ -453,7 +454,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'dashboard' && <Dashboard letters={letters} users={users} />}
+          {activeTab === 'dashboard' && <Dashboard letters={letters} users={users} onViewFiles={setViewingFilesLetter} />}
           
           {activeTab === 'surat-masuk' && (
             <LetterModule 
@@ -462,6 +463,7 @@ const App: React.FC = () => {
               onAdd={addLetter}
               onDelete={deleteLetter}
               onUpdate={updateLetter}
+              onViewFiles={setViewingFilesLetter}
               canManage={currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.STAF_MASUK}
               userRole={currentUser.role}
             />
@@ -474,6 +476,7 @@ const App: React.FC = () => {
               onAdd={addLetter}
               onDelete={deleteLetter}
               onUpdate={updateLetter}
+              onViewFiles={setViewingFilesLetter}
               canManage={currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.STAF_KELUAR}
               userRole={currentUser.role}
             />
@@ -495,6 +498,46 @@ const App: React.FC = () => {
           )}
         </main>
       </div>
+
+      {viewingFilesLetter && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 no-print">
+          <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Lampiran Berkas</h3>
+                <p className="text-xs text-slate-500">{viewingFilesLetter.referenceNumber} - {viewingFilesLetter.subject}</p>
+              </div>
+              <button onClick={() => setViewingFilesLetter(null)} className="text-slate-400 hover:text-slate-600 p-2 text-xl">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8 bg-slate-100">
+              <div className="grid grid-cols-1 gap-8">
+                {viewingFilesLetter.scannedImages?.map((img, idx) => (
+                  <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                      <span className="text-sm font-bold text-slate-600">Halaman {idx + 1}</span>
+                      <a 
+                        href={img} 
+                        download={`Lampiran_${viewingFilesLetter.referenceNumber}_Hal_${idx+1}`}
+                        className="text-xs font-bold text-indigo-600 hover:underline"
+                      >
+                        Unduh Berkas
+                      </a>
+                    </div>
+                    {img.startsWith('data:application/pdf') ? (
+                      <iframe src={img} className="w-full h-[600px] rounded-lg border" title={`PDF Halaman ${idx + 1}`} />
+                    ) : (
+                      <img src={img} alt={`Lampiran ${idx + 1}`} className="w-full h-auto rounded-lg shadow-inner" referrerPolicy="no-referrer" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t bg-white flex justify-end">
+              <button onClick={() => setViewingFilesLetter(null)} className="px-6 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors">Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
     </ErrorBoundary>
   );
 };

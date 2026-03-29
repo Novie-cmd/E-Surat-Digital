@@ -5,9 +5,10 @@ import { Letter, User } from '../types';
 interface DashboardProps {
   letters: Letter[];
   users: User[];
+  onViewFiles: (letter: Letter) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ letters, users }) => {
+const Dashboard: React.FC<DashboardProps> = ({ letters, users, onViewFiles }) => {
   const inCount = letters.filter(l => l.type === 'INCOMING').length;
   const outCount = letters.filter(l => l.type === 'OUTGOING').length;
 
@@ -46,6 +47,15 @@ const Dashboard: React.FC<DashboardProps> = ({ letters, users }) => {
                     <p className="font-semibold text-slate-800 truncate">{letter.subject}</p>
                     <p className="text-xs text-slate-500">{letter.referenceNumber} • {new Date(letter.createdAt).toLocaleDateString()}</p>
                   </div>
+                  {letter.scannedImages && letter.scannedImages.length > 0 && (
+                    <button 
+                      onClick={() => onViewFiles(letter)}
+                      className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
+                      title="Lihat Berkas"
+                    >
+                      📂
+                    </button>
+                  )}
                   <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
                     letter.type === 'INCOMING' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
                   }`}>

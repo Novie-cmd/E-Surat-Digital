@@ -10,11 +10,12 @@ interface LetterModuleProps {
   onAdd: (letter: Omit<Letter, 'id' | 'createdAt' | 'createdBy'>) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
   onUpdate: (letter: Letter) => Promise<boolean>;
+  onViewFiles: (letter: Letter) => void;
   canManage: boolean;
   userRole?: UserRole;
 }
 
-const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDelete, onUpdate, canManage, userRole }) => {
+const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDelete, onUpdate, onViewFiles, canManage, userRole }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingLetter, setEditingLetter] = useState<Letter | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -376,9 +377,12 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                       </td>
                       <td className="px-6 py-4">
                         {letter.scannedImages && letter.scannedImages.length > 0 ? (
-                          <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-md">
-                            {letter.scannedImages.length} Berkas
-                          </span>
+                          <button 
+                            onClick={() => onViewFiles(letter)}
+                            className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                          >
+                            <span>📂</span> {letter.scannedImages.length} Berkas
+                          </button>
                         ) : (
                           <span className="text-[10px] text-slate-300 italic">Kosong</span>
                         )}
@@ -404,6 +408,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                             </label>
                           </div>
 
+                          <button onClick={() => onViewFiles(letter)} className="text-slate-400 hover:text-indigo-600 p-1" title="Lihat Berkas">👁️</button>
                           <button onClick={() => handlePrint(letter)} className="text-slate-400 hover:text-indigo-600 p-1" title="Cetak Surat">🖨️</button>
                           {canManage && (
                             <>
