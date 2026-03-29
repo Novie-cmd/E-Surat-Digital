@@ -156,6 +156,18 @@ const App: React.FC = () => {
     return errInfo;
   };
 
+  const sanitizeData = (data: any) => {
+    const sanitized = { ...data };
+    Object.keys(sanitized).forEach(key => {
+      if (sanitized[key] === undefined) {
+        delete sanitized[key];
+      } else if (sanitized[key] !== null && typeof sanitized[key] === 'object' && !Array.isArray(sanitized[key])) {
+        sanitized[key] = sanitizeData(sanitized[key]);
+      }
+    });
+    return sanitized;
+  };
+
   // Validate Connection
   useEffect(() => {
     async function testConnection() {
@@ -295,11 +307,12 @@ const App: React.FC = () => {
     const path = 'letters';
     setDbError(null);
     try {
-      await addDoc(collection(db, path), {
+      const payload = sanitizeData({
         ...letter,
         createdAt: Date.now(),
         createdBy: currentUser?.name || 'Unknown'
       });
+      await addDoc(collection(db, path), payload);
       return true;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
@@ -325,7 +338,8 @@ const App: React.FC = () => {
     const { id, ...data } = updated;
     const path = `letters/${id}`;
     try {
-      await updateDoc(doc(db, 'letters', id), data);
+      const payload = sanitizeData(data);
+      await updateDoc(doc(db, 'letters', id), payload);
       return true;
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
@@ -338,11 +352,11 @@ const App: React.FC = () => {
     try {
       for (const a of updatedList) {
         const { id, ...data } = a;
-        const payload = {
+        const payload = sanitizeData({
           ...data,
           createdBy: a.createdBy || currentUser?.name || 'Unknown',
           createdAt: a.createdAt || Date.now()
-        };
+        });
         
         if (id && id.length > 15) {
           await updateDoc(doc(db, path, id), payload);
