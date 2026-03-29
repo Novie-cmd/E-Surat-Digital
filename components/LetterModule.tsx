@@ -7,9 +7,9 @@ import Scanner from './Scanner';
 interface LetterModuleProps {
   type: LetterType;
   letters: Letter[];
-  onAdd: (letter: Omit<Letter, 'id' | 'createdAt' | 'createdBy'>) => void;
-  onDelete: (id: string) => void;
-  onUpdate: (letter: Letter) => void;
+  onAdd: (letter: Omit<Letter, 'id' | 'createdAt' | 'createdBy'>) => Promise<boolean>;
+  onDelete: (id: string) => Promise<boolean>;
+  onUpdate: (letter: Letter) => Promise<boolean>;
   canManage: boolean;
   userRole?: UserRole;
 }
@@ -18,6 +18,7 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
   const [showForm, setShowForm] = useState(false);
   const [editingLetter, setEditingLetter] = useState<Letter | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showDisposition, setShowDisposition] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [newRecipient, setNewRecipient] = useState('');
@@ -58,16 +59,22 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    let success = false;
     if (editingLetter) {
-      onUpdate({ ...editingLetter, ...formData });
-      setEditingLetter(null);
+      success = await onUpdate({ ...editingLetter, ...formData });
+      if (success) setEditingLetter(null);
     } else {
-      onAdd({ ...formData, type });
+      success = await onAdd({ ...formData, type });
     }
-    resetForm();
-    setShowForm(false);
+    
+    setIsSaving(false);
+    if (success) {
+      resetForm();
+      setShowForm(false);
+    }
   };
 
   const resetForm = () => {
@@ -497,8 +504,10 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
               )}
 
               <div className="flex justify-end gap-3 pt-6 border-t">
-                <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 text-slate-500 font-bold">Batal</button>
-                <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">Simpan Arsip</button>
+                <button type="button" onClick={() => setShowForm(false)} disabled={isSaving} className="px-6 py-2.5 text-slate-500 font-bold">Batal</button>
+                <button type="submit" disabled={isSaving} className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg disabled:opacity-50">
+                  {isSaving ? 'Menyimpan...' : 'Simpan Arsip'}
+                </button>
               </div>
             </form>
           </div>

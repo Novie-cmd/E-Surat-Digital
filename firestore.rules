@@ -52,8 +52,14 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+        (hasRole('ADMIN') ||
          (request.auth.token.email == "noviharyanto062@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
 
     function hasRequiredFields(fields) {
@@ -108,14 +114,14 @@ service cloud.firestore {
       
       allow create: if isAuthenticated() && isValidLetter(request.resource.data) && (
         isAdmin() || 
-        (request.resource.data.type == 'INCOMING' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STAF_MASUK') ||
-        (request.resource.data.type == 'OUTGOING' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STAF_KELUAR')
+        (request.resource.data.type == 'INCOMING' && hasRole('STAF_MASUK')) ||
+        (request.resource.data.type == 'OUTGOING' && hasRole('STAF_KELUAR'))
       );
       
       allow update: if isAuthenticated() && isValidLetter(request.resource.data) && (
         isAdmin() || 
-        (resource.data.type == 'INCOMING' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STAF_MASUK') ||
-        (resource.data.type == 'OUTGOING' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'STAF_KELUAR')
+        (resource.data.type == 'INCOMING' && hasRole('STAF_MASUK')) ||
+        (resource.data.type == 'OUTGOING' && hasRole('STAF_KELUAR'))
       );
       
       allow delete: if isAdmin();

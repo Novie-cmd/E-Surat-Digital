@@ -132,6 +132,30 @@ const App: React.FC = () => {
   const [dbError, setDbError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
+  const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+    const errInfo: FirestoreErrorInfo = {
+      error: error instanceof Error ? error.message : String(error),
+      authInfo: {
+        userId: auth.currentUser?.uid,
+        email: auth.currentUser?.email,
+        emailVerified: auth.currentUser?.emailVerified,
+        isAnonymous: auth.currentUser?.isAnonymous,
+        tenantId: auth.currentUser?.tenantId,
+        providerInfo: auth.currentUser?.providerData.map(provider => ({
+          providerId: provider.providerId,
+          displayName: provider.displayName,
+          email: provider.email,
+          photoUrl: provider.photoURL
+        })) || []
+      },
+      operationType,
+      path
+    };
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+    setDbError(`Kesalahan Database (${operationType}): ${errInfo.error}`);
+    return errInfo;
+  };
+
   // Validate Connection
   useEffect(() => {
     async function testConnection() {
@@ -269,14 +293,17 @@ const App: React.FC = () => {
   // --- 5. DATA MUTATION HANDLERS ---
   const addLetter = async (letter: Omit<Letter, 'id' | 'createdAt' | 'createdBy'>) => {
     const path = 'letters';
+    setDbError(null);
     try {
       await addDoc(collection(db, path), {
         ...letter,
         createdAt: Date.now(),
         createdBy: currentUser?.name || 'Unknown'
       });
+      return true;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
+      return false;
     }
   };
 
@@ -285,10 +312,13 @@ const App: React.FC = () => {
     if (confirm("Hapus arsip dari cloud?")) {
       try {
         await deleteDoc(doc(db, 'letters', id));
+        return true;
       } catch (error) {
         handleFirestoreError(error, OperationType.DELETE, path);
+        return false;
       }
     }
+    return false;
   };
 
   const updateLetter = async (updated: Letter) => {
@@ -296,8 +326,10 @@ const App: React.FC = () => {
     const path = `letters/${id}`;
     try {
       await updateDoc(doc(db, 'letters', id), data);
+      return true;
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
+      return false;
     }
   };
 
