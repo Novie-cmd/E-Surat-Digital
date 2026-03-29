@@ -163,24 +163,25 @@ const App: React.FC = () => {
         }
       } else {
         setCurrentUser(null);
+        setIsSyncing(false);
       }
       setIsAuthReady(true);
     });
     return () => unsubscribe();
-  }, [users, isAuthReady]);
+  }, [users]);
 
   // --- 1. SINKRONISASI USERS ---
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || !auth.currentUser) return;
 
     const path = 'users';
     const unsubscribe = onSnapshot(collection(db, path), (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
       
-      if (data.length === 0) {
-        // Initial Admin
+      if (data.length === 0 && auth.currentUser?.email === "noviharyanto062@gmail.com") {
+        // Initial Admin bootstrap if collection is empty
         const adminData = { username: 'admin', name: 'Administrator', role: UserRole.ADMIN, password: '123' };
-        setDoc(doc(db, path, 'admin_initial'), adminData).catch(err => handleFirestoreError(err, OperationType.WRITE, path));
+        setDoc(doc(db, path, 'admin_initial'), adminData).catch(err => console.error("Bootstrap error:", err));
       } else {
         setUsers(data);
       }
@@ -189,13 +190,14 @@ const App: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, [isAuthReady, auth.currentUser]);
 
   // --- 2. SINKRONISASI LETTERS ---
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || !auth.currentUser) return;
 
     const path = 'letters';
+    setIsSyncing(true);
     const q = query(collection(db, path), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Letter));
@@ -206,11 +208,11 @@ const App: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, [isAuthReady, auth.currentUser]);
 
   // --- 3. SINKRONISASI AGENDAS ---
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || !auth.currentUser) return;
 
     const path = 'agendas';
     const q = query(collection(db, path), orderBy('createdAt', 'desc'));
@@ -222,7 +224,7 @@ const App: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [isAuthReady]);
+  }, [isAuthReady, auth.currentUser]);
 
   // --- 4. AUTH HANDLERS ---
   const handleLogout = async () => {
