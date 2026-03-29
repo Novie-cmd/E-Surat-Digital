@@ -6,9 +6,10 @@ interface DashboardProps {
   letters: Letter[];
   users: User[];
   onViewFiles: (letter: Letter) => void;
+  onQuickScan: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ letters, users, onViewFiles }) => {
+const Dashboard: React.FC<DashboardProps> = ({ letters, users, onViewFiles, onQuickScan }) => {
   const inCount = letters.filter(l => l.type === 'INCOMING').length;
   const outCount = letters.filter(l => l.type === 'OUTGOING').length;
 
@@ -21,6 +22,15 @@ const Dashboard: React.FC<DashboardProps> = ({ letters, users, onViewFiles }) =>
 
   return (
     <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-slate-800">Ringkasan Sistem</h2>
+        <button 
+          onClick={onQuickScan}
+          className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2"
+        >
+          <span>📸</span> Quick Scan
+        </button>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">

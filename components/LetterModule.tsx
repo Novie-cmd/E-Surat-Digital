@@ -11,11 +11,24 @@ interface LetterModuleProps {
   onDelete: (id: string) => Promise<boolean>;
   onUpdate: (letter: Letter) => Promise<boolean>;
   onViewFiles: (letter: Letter) => void;
+  defaultOpenScanner?: boolean;
+  onScannerClose?: () => void;
   canManage: boolean;
   userRole?: UserRole;
 }
 
-const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDelete, onUpdate, onViewFiles, canManage, userRole }) => {
+const LetterModule: React.FC<LetterModuleProps> = ({ 
+  type, 
+  letters, 
+  onAdd, 
+  onDelete, 
+  onUpdate, 
+  onViewFiles, 
+  defaultOpenScanner,
+  onScannerClose,
+  canManage, 
+  userRole 
+}) => {
   const [showForm, setShowForm] = useState(false);
   const [editingLetter, setEditingLetter] = useState<Letter | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -23,8 +36,19 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
   const [showDisposition, setShowDisposition] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [newRecipient, setNewRecipient] = useState('');
+  const [scanOnly, setScanOnly] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Handle quick scan from dashboard
+  React.useEffect(() => {
+    if (defaultOpenScanner) {
+      resetForm();
+      setScanOnly(true);
+      setShowScanner(true);
+      if (onScannerClose) onScannerClose();
+    }
+  }, [defaultOpenScanner]);
+
   const [formData, setFormData] = useState({
     referenceNumber: '',
     date: new Date().toISOString().split('T')[0],
@@ -310,6 +334,10 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
       scannedImages: [...prev.scannedImages, ...images]
     }));
     setShowScanner(false);
+    if (scanOnly) {
+      setShowForm(true);
+      setScanOnly(false);
+    }
   };
 
   const addRecipient = () => {
@@ -337,9 +365,20 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
            <input type="text" placeholder="Cari nomor/perihal..." className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm" />
         </div>
         {canManage && (
-          <button onClick={() => { resetForm(); setShowForm(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
-            <span>+</span> {type === 'INCOMING' ? 'Input Surat Masuk' : 'Input Surat Keluar'}
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => { resetForm(); setScanOnly(true); setShowScanner(true); }} 
+              className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2"
+            >
+              <span>📸</span> Scan Dokumen
+            </button>
+            <button 
+              onClick={() => { resetForm(); setShowForm(true); }} 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2"
+            >
+              <span>+</span> {type === 'INCOMING' ? 'Input Surat Masuk' : 'Input Surat Keluar'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -451,8 +490,12 @@ const LetterModule: React.FC<LetterModuleProps> = ({ type, letters, onAdd, onDel
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-bold text-slate-700">Lampiran Berkas</label>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200">📁 File</button>
-                    <button type="button" onClick={() => setShowScanner(true)} className="text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">📸 Kamera</button>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-sm font-bold text-indigo-700 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-200 hover:bg-indigo-100 transition-colors">
+                      <span>📁</span> Pilih File
+                    </button>
+                    <button type="button" onClick={() => setShowScanner(true)} className="flex items-center gap-2 text-sm font-bold text-emerald-700 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition-colors">
+                      <span>📸</span> Ambil Foto / Scan
+                    </button>
                     <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,application/pdf" onChange={handleFileUpload} />
                   </div>
                 </div>

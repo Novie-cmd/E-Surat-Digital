@@ -132,6 +132,7 @@ const App: React.FC = () => {
   const [dbError, setDbError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [viewingFilesLetter, setViewingFilesLetter] = useState<Letter | null>(null);
+  const [isQuickScan, setIsQuickScan] = useState(false);
 
   const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
     const errInfo: FirestoreErrorInfo = {
@@ -454,7 +455,17 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'dashboard' && <Dashboard letters={letters} users={users} onViewFiles={setViewingFilesLetter} />}
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+              letters={letters} 
+              users={users} 
+              onViewFiles={setViewingFilesLetter} 
+              onQuickScan={() => {
+                setActiveTab('surat-masuk');
+                setIsQuickScan(true);
+              }}
+            />
+          )}
           
           {activeTab === 'surat-masuk' && (
             <LetterModule 
@@ -464,6 +475,8 @@ const App: React.FC = () => {
               onDelete={deleteLetter}
               onUpdate={updateLetter}
               onViewFiles={setViewingFilesLetter}
+              defaultOpenScanner={isQuickScan}
+              onScannerClose={() => setIsQuickScan(false)}
               canManage={currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.STAF_MASUK}
               userRole={currentUser.role}
             />
