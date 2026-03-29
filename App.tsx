@@ -122,11 +122,13 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [letters, setLetters] = useState<Letter[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [agendas, setAgendas] = useState<Agenda[]>([]);
-  const [isSyncing, setIsSyncing] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isUsersLoaded, setIsUsersLoaded] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
@@ -144,57 +146,79 @@ const App: React.FC = () => {
     testConnection();
   }, []);
 
-  // Firebase Auth Setup
+  // 1. Firebase Auth Listener
   useEffect(() => {
+    console.log("Setting up onAuthStateChanged listener...");
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Find user in our users collection to get role
-        const userProfile = users.find(u => u.id === user.uid || u.username === user.email);
-        if (userProfile) {
-          setCurrentUser(userProfile);
-        } else if (user.email === "noviharyanto062@gmail.com") {
-          // Bootstrap admin
-          setCurrentUser({
-            id: user.uid,
-            username: user.email || 'admin',
-            name: user.displayName || 'Administrator',
-            role: UserRole.ADMIN
-          });
-        }
-      } else {
+      console.log("onAuthStateChanged fired. User:", user ? user.email : "null");
+      setFirebaseUser(user);
+      setIsAuthReady(true);
+      if (!user) {
         setCurrentUser(null);
         setIsSyncing(false);
       }
-      setIsAuthReady(true);
+    }, (error) => {
+      console.error("onAuthStateChanged error:", error);
+      setIsAuthReady(true); // Still mark as ready so we don't stay stuck
+      setDbError(`Auth error: ${error.message}`);
     });
     return () => unsubscribe();
-  }, [users]);
+  }, []);
+
+  // 2. Map Firebase User to App Profile
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    const userProfile = users.find(u => u.id === firebaseUser.uid || u.username === firebaseUser.email);
+    if (userProfile) {
+      setCurrentUser(userProfile);
+    } else if (firebaseUser.email === "noviharyanto062@gmail.com") {
+      // Bootstrap admin
+      setCurrentUser({
+        id: firebaseUser.uid,
+        username: firebaseUser.email || 'admin',
+        name: firebaseUser.displayName || 'Administrator',
+        role: UserRole.ADMIN
+      });
+    }
+  }, [firebaseUser, users]);
 
   // --- 1. SINKRONISASI USERS ---
   useEffect(() => {
-    if (!isAuthReady || !auth.currentUser) return;
+    if (!isAuthReady || !firebaseUser) {
+      setIsUsersLoaded(false);
+      return;
+    }
 
     const path = 'users';
     const unsubscribe = onSnapshot(collection(db, path), (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
       
-      if (data.length === 0 && auth.currentUser?.email === "noviharyanto062@gmail.com") {
+      if (data.length === 0 && firebaseUser?.email === "noviharyanto062@gmail.com") {
         // Initial Admin bootstrap if collection is empty
-        const adminData = { username: 'admin', name: 'Administrator', role: UserRole.ADMIN, password: '123' };
-        setDoc(doc(db, path, 'admin_initial'), adminData).catch(err => console.error("Bootstrap error:", err));
+        const adminData = { 
+          username: firebaseUser.email, 
+          name: firebaseUser.displayName || 'Administrator', 
+          role: UserRole.ADMIN, 
+          password: '123' 
+        };
+        setDoc(doc(db, path, firebaseUser.uid), adminData).catch(err => console.error("Bootstrap error:", err));
       } else {
         setUsers(data);
       }
+      setIsUsersLoaded(true);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+      setDbError(`Gagal memuat data pengguna: ${error.message}`);
+      setIsSyncing(false);
+      setIsUsersLoaded(true);
     });
 
     return () => unsubscribe();
-  }, [isAuthReady, auth.currentUser]);
+  }, [isAuthReady, firebaseUser]);
 
   // --- 2. SINKRONISASI LETTERS ---
   useEffect(() => {
-    if (!isAuthReady || !auth.currentUser) return;
+    if (!isAuthReady || !firebaseUser) return;
 
     const path = 'letters';
     setIsSyncing(true);
@@ -204,15 +228,16 @@ const App: React.FC = () => {
       setLetters(data);
       setIsSyncing(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+      setDbError(`Gagal memuat data surat: ${error.message}`);
+      setIsSyncing(false);
     });
 
     return () => unsubscribe();
-  }, [isAuthReady, auth.currentUser]);
+  }, [isAuthReady, firebaseUser]);
 
   // --- 3. SINKRONISASI AGENDAS ---
   useEffect(() => {
-    if (!isAuthReady || !auth.currentUser) return;
+    if (!isAuthReady || !firebaseUser) return;
 
     const path = 'agendas';
     const q = query(collection(db, path), orderBy('createdAt', 'desc'));
@@ -220,11 +245,11 @@ const App: React.FC = () => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Agenda));
       setAgendas(data);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+      setDbError(`Gagal memuat data agenda: ${error.message}`);
     });
 
     return () => unsubscribe();
-  }, [isAuthReady, auth.currentUser]);
+  }, [isAuthReady, firebaseUser]);
 
   // --- 4. AUTH HANDLERS ---
   const handleLogout = async () => {
@@ -323,6 +348,9 @@ const App: React.FC = () => {
   };
 
   if (!currentUser) {
+    const isInitialLoading = !isAuthReady || (firebaseUser && !isUsersLoaded);
+    const isUnauthorized = firebaseUser && isUsersLoaded && !currentUser;
+
     return (
       <ErrorBoundary>
         {dbError && (
@@ -330,7 +358,13 @@ const App: React.FC = () => {
             ⚠️ {dbError}
           </div>
         )}
-        <Auth onLogin={handleLogin} isSyncing={isSyncing} />
+        <Auth 
+          onLogin={handleLogin} 
+          isSyncing={isInitialLoading} 
+          isUnauthorized={isUnauthorized}
+          onLogout={handleLogout}
+          firebaseUser={firebaseUser}
+        />
       </ErrorBoundary>
     );
   }
