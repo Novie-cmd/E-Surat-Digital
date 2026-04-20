@@ -231,6 +231,7 @@ const App: React.FC = () => {
     const path = 'users';
     const unsubscribe = onSnapshot(collection(db, path), (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+      setUsers(data);
       
       if (data.length === 0 && firebaseUser?.email === "noviharyanto062@gmail.com") {
         // Initial Admin bootstrap if collection is empty
@@ -241,8 +242,6 @@ const App: React.FC = () => {
           password: '123' 
         };
         setDoc(doc(db, path, firebaseUser.uid), adminData).catch(err => console.error("Bootstrap error:", err));
-      } else {
-        setUsers(data);
       }
       setIsUsersLoaded(true);
     }, (error) => {
@@ -360,7 +359,7 @@ const App: React.FC = () => {
           createdAt: a.createdAt || Date.now()
         });
         
-        if (id && id.length > 15) {
+        if (id && id.length > 20) {
           await updateDoc(doc(db, path, id), payload);
         } else {
           await addDoc(collection(db, path), payload);
@@ -371,27 +370,37 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateUsers = async (updatedUsers: User[]) => {
+  const addUser = async (user: Omit<User, 'id'>) => {
     const path = 'users';
     try {
-      // Find deleted users
-      const currentIds = updatedUsers.map(u => u.id);
-      const deletedUsers = users.filter(u => !currentIds.includes(u.id));
-      
-      for (const u of deletedUsers) {
-        await deleteDoc(doc(db, path, u.id));
-      }
-
-      for (const u of updatedUsers) {
-        const { id, ...data } = u;
-        if (id && id.length > 15) {
-          await updateDoc(doc(db, path, id), data);
-        } else {
-          await addDoc(collection(db, path), data);
-        }
-      }
+      await addDoc(collection(db, path), user);
+      return true;
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, path);
+      handleFirestoreError(error, OperationType.CREATE, path);
+      return false;
+    }
+  };
+
+  const updateUser = async (user: User) => {
+    const { id, ...data } = user;
+    const path = `users/${id}`;
+    try {
+      await updateDoc(doc(db, path, id), data);
+      return true;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+      return false;
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    const path = `users/${id}`;
+    try {
+      await deleteDoc(doc(db, path, id));
+      return true;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+      return false;
     }
   };
 
@@ -506,7 +515,9 @@ const App: React.FC = () => {
           {activeTab === 'users' && currentUser.role === UserRole.ADMIN && (
             <UserManagement 
               users={users} 
-              onUpdateUsers={handleUpdateUsers} 
+              onAddUser={addUser}
+              onUpdateUser={updateUser}
+              onDeleteUser={deleteUser}
             />
           )}
         </main>

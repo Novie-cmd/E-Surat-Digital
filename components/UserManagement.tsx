@@ -4,10 +4,12 @@ import { User, UserRole } from '../types';
 
 interface UserManagementProps {
   users: User[];
-  onUpdateUsers: (users: User[]) => void;
+  onAddUser: (user: Omit<User, 'id'>) => Promise<boolean>;
+  onUpdateUser: (user: User) => Promise<boolean>;
+  onDeleteUser: (id: string) => Promise<boolean>;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [error, setError] = useState('');
@@ -41,7 +43,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers })
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -62,36 +64,33 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUpdateUsers })
       return;
     }
     
+    let success = false;
     if (editingUser) {
       // Proses Update (Ubah)
-      const updatedUsers = users.map(u => 
-        u.id === editingUser.id ? { ...u, ...formData, username: formData.username.toLowerCase() } : u
-      );
-      onUpdateUsers(updatedUsers);
+      success = await onUpdateUser({ ...editingUser, ...formData, username: formData.username.toLowerCase() });
     } else {
       // Proses Masuk (Tambah Baru)
-      const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
+      success = await onAddUser({
         ...formData,
         username: formData.username.toLowerCase()
-      };
-      onUpdateUsers([...users, newUser]);
+      });
     }
 
-    setIsModalOpen(false);
-    resetForm();
+    if (success) {
+      setIsModalOpen(false);
+      resetForm();
+    }
   };
 
-  const handleDelete = (id: string, username: string) => {
+  const handleDelete = async (id: string, username: string) => {
     // Proteksi: Admin utama tidak boleh dihapus
-    if (username === 'admin') {
+    if (username === 'admin' || username === 'noviharyanto062@gmail.com') {
       alert('Akun administrator utama tidak dapat dihapus demi keamanan sistem.');
       return;
     }
 
     if (confirm(`Apakah Anda yakin ingin menghapus akses untuk "${username}"? Staf ini tidak akan bisa login lagi.`)) {
-      const filteredUsers = users.filter(u => u.id !== id);
-      onUpdateUsers(filteredUsers);
+      await onDeleteUser(id);
     }
   };
 
