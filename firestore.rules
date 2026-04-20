@@ -43,93 +43,127 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ===============================================================
+    // Global Safety Net
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Heartbeat / Connection Test
+    // ===============================================================
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // ===============================================================
     // Helper Functions
     // ===============================================================
 
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
     function isAdmin() {
-      return isAuthenticated() && 
-        (hasRole('ADMIN') ||
-         (request.auth.token.email == "noviharyanto062@gmail.com" && request.auth.token.email_verified == true));
+      return isVerified() && (
+        (request.auth.token.email == "noviharyanto062@gmail.com") ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ADMIN")
+      );
     }
 
     function hasRole(role) {
-      return isAuthenticated() && 
+      return isVerified() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
 
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
     }
 
     // ===============================================================
-    // Domain Validators
+    // Entity Validators
     // ===============================================================
 
     function isValidUser(data) {
-      return data.username is string && data.username.size() > 0 && data.username.size() < 50 &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+      return data.username is string && data.username.size() > 0 && data.username.size() <= 50 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
              data.role in ['ADMIN', 'STAF_MASUK', 'STAF_KELUAR'] &&
-             data.password is string && data.password.size() > 0;
+             data.password is string && data.password.size() > 0 && data.password.size() <= 128;
     }
 
     function isValidLetter(data) {
       return data.type in ['INCOMING', 'OUTGOING'] &&
-             data.referenceNumber is string &&
-             data.date is string &&
-             data.sender is string &&
-             data.subject is string &&
-             data.createdAt is number;
+             data.referenceNumber is string && data.referenceNumber.size() <= 100 &&
+             data.date is string && data.date.size() <= 50 &&
+             data.sender is string && data.sender.size() <= 200 &&
+             data.subject is string && data.subject.size() <= 500 &&
+             data.createdAt is number &&
+             (!('scannedImages' in data) || data.scannedImages is list) &&
+             (!('disposition' in data) || data.disposition is map) &&
+             (!('description' in data) || data.description is string);
     }
 
     function isValidAgenda(data) {
-      return data.dayDate is string &&
-             data.items is list &&
+      return data.dayDate is string && data.dayDate.size() <= 50 &&
+             data.items is list && data.items.size() <= 100 &&
              data.createdAt is number;
     }
 
     // ===============================================================
-    // Rules
+    // Collection Rules
     // ===============================================================
 
     match /users/{userId} {
-      // Allow reading users for login purposes
-      allow read: if isAuthenticated();
+      allow read: if isVerified();
       
-      // Allow the initial admin to create their own profile or other users
-      allow create, update: if (isAdmin() || (request.auth.token.email == "noviharyanto062@gmail.com" && request.auth.token.email_verified == true)) && isValidUser(request.resource.data);
+      allow create: if (isAdmin() || request.auth.uid == userId) && 
+                      isValidId(userId) && 
+                      isValidUser(incoming());
+                      
+      allow update: if (isAdmin() || request.auth.uid == userId) && 
+                      isValidUser(incoming()) &&
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'password', 'role', 'username']) || isAdmin());
+      
       allow delete: if isAdmin();
     }
 
     match /letters/{letterId} {
-      allow read: if isAuthenticated();
+      allow get: if isVerified();
+      allow list: if isVerified();
       
-      allow create: if isAuthenticated() && isValidLetter(request.resource.data) && (
+      allow create: if isVerified() && isValidId(letterId) && isValidLetter(incoming()) && (
         isAdmin() || 
-        (request.resource.data.type == 'INCOMING' && hasRole('STAF_MASUK')) ||
-        (request.resource.data.type == 'OUTGOING' && hasRole('STAF_KELUAR'))
+        (incoming().type == 'INCOMING' && hasRole('STAF_MASUK')) ||
+        (incoming().type == 'OUTGOING' && hasRole('STAF_KELUAR'))
       );
       
-      allow update: if isAuthenticated() && isValidLetter(request.resource.data) && (
+      allow update: if isVerified() && isValidLetter(incoming()) && (
         isAdmin() || 
-        (resource.data.type == 'INCOMING' && hasRole('STAF_MASUK')) ||
-        (resource.data.type == 'OUTGOING' && hasRole('STAF_KELUAR'))
-      );
+        (existing().type == 'INCOMING' && hasRole('STAF_MASUK')) ||
+        (existing().type == 'OUTGOING' && hasRole('STAF_KELUAR'))
+      ) && incoming().type == existing().type; // Type is immutable
       
       allow delete: if isAdmin();
     }
 
     match /agendas/{agendaId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin() && isValidAgenda(request.resource.data);
+      allow read: if isVerified();
+      allow create, update: if isAdmin() && isValidId(agendaId) && isValidAgenda(incoming());
+      allow delete: if isAdmin();
     }
   }
 }
