@@ -82,15 +82,39 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     }
   };
 
-  const handleDelete = async (id: string, username: string) => {
-    // Proteksi: Admin utama tidak boleh dihapus
-    if (username === 'admin' || username === 'noviharyanto062@gmail.com') {
+  const handleDelete = async (user: User) => {
+    // Proteksi: Akun admin utama atau akun yang sedang login tidak boleh dihapus sendiri
+    const isPrimaryAdmin = user.username === 'admin' || user.username === 'noviharyanto062@gmail.com';
+    
+    if (isPrimaryAdmin) {
       alert('Akun administrator utama tidak dapat dihapus demi keamanan sistem.');
       return;
     }
 
-    if (confirm(`Apakah Anda yakin ingin menghapus akses untuk "${username}"? Staf ini tidak akan bisa login lagi.`)) {
-      await onDeleteUser(id);
+    if (confirm(`Apakah Anda yakin ingin menghapus akses untuk "${user.username}"?`)) {
+      await onDeleteUser(user.id);
+    }
+  };
+
+  const handleCleanupDuplicates = async () => {
+    const adminUsers = users.filter(u => u.role === UserRole.ADMIN);
+    if (adminUsers.length <= 1) {
+      alert('Tidak ditemukan duplikat Administrator.');
+      return;
+    }
+
+    if (confirm(`Ditemukan ${adminUsers.length} Administrator. Apakah Anda ingin menyisakan hanya 1 Admin utama dan menghapus sisanya?`)) {
+      // Prioritaskan noviharyanto062@gmail.com atau 'admin' sebagai yang tetap
+      const primaryAdmin = adminUsers.find(u => u.username === 'noviharyanto062@gmail.com' || u.username === 'admin') || adminUsers[0];
+      
+      const toDelete = adminUsers.filter(u => u.id !== primaryAdmin.id);
+      
+      let count = 0;
+      for (const u of toDelete) {
+        const success = await onDeleteUser(u.id);
+        if (success) count++;
+      }
+      alert(`Pembersihan selesai. ${count} akun duplikat telah dihapus.`);
     }
   };
 
@@ -101,12 +125,20 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
           <h3 className="text-lg font-bold text-slate-800">Daftar Pengguna Sistem</h3>
           <p className="text-sm text-slate-500">Kelola hak akses dan akun staf E-Surat</p>
         </div>
-        <button 
-          onClick={handleOpenAdd}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 active:scale-95"
-        >
-          <span className="text-xl">+</span> Tambah User (Masuk)
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={handleCleanupDuplicates}
+            className="bg-red-50 hover:bg-red-100 text-red-600 px-6 py-2.5 rounded-xl font-bold transition-all border border-red-100 flex items-center gap-2 active:scale-95"
+          >
+            <span>🧹</span> Bersihkan Duplikat
+          </button>
+          <button 
+            onClick={handleOpenAdd}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 active:scale-95"
+          >
+            <span className="text-xl">+</span> Tambah User (Masuk)
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -148,9 +180,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
                       Ubah
                     </button>
                     <button 
-                      onClick={() => handleDelete(user.id, user.username)}
-                      className={`text-red-500 hover:text-red-700 text-sm font-bold px-3 py-1.5 hover:bg-red-50 rounded-lg transition-colors ${user.username === 'admin' ? 'opacity-20 cursor-not-allowed' : ''}`}
-                      disabled={user.username === 'admin'}
+                      onClick={() => handleDelete(user)}
+                      className={`text-red-500 hover:text-red-700 text-sm font-bold px-3 py-1.5 hover:bg-red-50 rounded-lg transition-colors ${ (user.username === 'admin' || user.username === 'noviharyanto062@gmail.com') ? 'opacity-20 cursor-not-allowed' : ''}`}
+                      disabled={user.username === 'admin' || user.username === 'noviharyanto062@gmail.com'}
                     >
                       Hapus
                     </button>
