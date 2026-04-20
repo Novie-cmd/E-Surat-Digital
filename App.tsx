@@ -55,8 +55,9 @@ interface FirestoreErrorInfo {
 }
 
 const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+  const message = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: message,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -74,7 +75,7 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  return errInfo;
 };
 
 // Error Boundary Component
@@ -133,30 +134,7 @@ const App: React.FC = () => {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [viewingFilesLetter, setViewingFilesLetter] = useState<Letter | null>(null);
   const [isQuickScan, setIsQuickScan] = useState(false);
-
-  const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
-    const errInfo: FirestoreErrorInfo = {
-      error: error instanceof Error ? error.message : String(error),
-      authInfo: {
-        userId: auth.currentUser?.uid,
-        email: auth.currentUser?.email,
-        emailVerified: auth.currentUser?.emailVerified,
-        isAnonymous: auth.currentUser?.isAnonymous,
-        tenantId: auth.currentUser?.tenantId,
-        providerInfo: auth.currentUser?.providerData.map(provider => ({
-          providerId: provider.providerId,
-          displayName: provider.displayName,
-          email: provider.email,
-          photoUrl: provider.photoURL
-        })) || []
-      },
-      operationType,
-      path
-    };
-    console.error('Firestore Error: ', JSON.stringify(errInfo));
-    setDbError(`Kesalahan Database (${operationType}): ${errInfo.error}`);
-    return errInfo;
-  };
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const sanitizeData = (data: any) => {
     const sanitized = { ...data };
@@ -175,9 +153,20 @@ const App: React.FC = () => {
     async function testConnection() {
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
+        console.log("Firestore connection test: SUCCESS");
+        setDbError(null);
       } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          setDbError("Gagal terhubung ke Firestore. Pastikan konfigurasi Firebase sudah benar.");
+        console.error("Firestore connection test ERROR:", error);
+        if (error instanceof Error) {
+          if (error.message.includes('the client is offline')) {
+            setDbError("Gagal terhubung ke Firestore. Aplikasi terdeteksi Offline atau Konfigurasi salah.");
+          } else if (error.message.includes('permission-denied') || error.message.includes('insufficient permissions')) {
+            // Permission denied on test doc is expected if rules are tight, but connection is alive
+            console.log("Firestore is alive but test doc access restricted (Expected).");
+            setDbError(null);
+          } else {
+            setDbError(`Gagal terhubung ke Firestore: ${error.message}`);
+          }
         }
       }
     }
@@ -412,7 +401,23 @@ const App: React.FC = () => {
       <ErrorBoundary>
         {dbError && (
           <div className="fixed top-0 inset-x-0 bg-red-600 text-white p-2 text-center text-xs z-[200]">
-            ⚠️ {dbError}
+            <div className="max-w-4xl mx-auto flex items-center justify-center gap-4">
+              <span>⚠️ {dbError}</span>
+              <button 
+                onClick={() => setShowErrorDetails(!showErrorDetails)}
+                className="underline font-bold hover:text-red-100"
+              >
+                {showErrorDetails ? 'Sembunyikan Detail' : 'Lihat Detail'}
+              </button>
+            </div>
+            {showErrorDetails && (
+              <div className="mt-2 p-2 bg-red-900/50 rounded text-[10px] text-left break-all whitespace-pre-wrap max-w-4xl mx-auto font-mono">
+                Project ID: {db.app.options.projectId}{'\n'}
+                Database ID: {(db as any)._databaseId?.databaseId || 'default'}{'\n'}
+                Auth Status: {firebaseUser ? `Signed In (${firebaseUser.email})` : 'Signed Out'}{'\n'}
+                Time: {new Date().toISOString()}
+              </div>
+            )}
           </div>
         )}
         <Auth 
@@ -429,6 +434,27 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
+        {dbError && (
+          <div className="fixed top-0 inset-x-0 bg-red-600 text-white p-2 text-center text-xs z-[200]">
+            <div className="max-w-4xl mx-auto flex items-center justify-center gap-4">
+              <span>⚠️ {dbError}</span>
+              <button 
+                onClick={() => setShowErrorDetails(!showErrorDetails)}
+                className="underline font-bold hover:text-red-100"
+              >
+                {showErrorDetails ? 'Sembunyikan Detail' : 'Lihat Detail'}
+              </button>
+            </div>
+            {showErrorDetails && (
+              <div className="mt-2 p-2 bg-red-900/50 rounded text-[10px] text-left break-all whitespace-pre-wrap max-w-4xl mx-auto font-mono">
+                Project ID: {db.app.options.projectId}{'\n'}
+                Database ID: {(db as any)._databaseId?.databaseId || 'default'}{'\n'}
+                Auth Status: {firebaseUser ? `Signed In (${firebaseUser.email})` : 'Signed Out'}{'\n'}
+                Time: {new Date().toISOString()}
+              </div>
+            )}
+          </div>
+        )}
         <Sidebar 
           role={currentUser.role} 
           activeTab={activeTab} 
